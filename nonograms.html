@@ -1,0 +1,1222 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+    
+    <title>Nonograms</title>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="js/i18n.js"></script>
+
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+            --stripe-pattern: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+            --grid-line: #000000;
+            --filled-cell: #000000;
+            --x-color: #000000;
+        }
+
+        body {
+            image-rendering: pixelated;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #e5e5e5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            box-sizing: border-box;
+            touch-action: none;
+        }
+
+        /* WINDOW FRAME */
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            min-height: 95vh;
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+        }
+
+        /* TITLE BAR */
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0 10px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: var(--stripe-pattern);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* SCREEN MANAGER */
+        .screen {
+            display: none;
+            flex-grow: 1;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: white;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* MENU SCREEN */
+        #screen-menu {
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: #fafafa;
+            box-sizing: border-box;
+        }
+
+        .logo-area {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo-area h1 {
+            font-size: 3rem;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .logo-area p {
+            margin: 5px 0 0 0;
+            font-style: italic;
+            color: #666;
+        }
+
+        .difficulty-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .difficulty-container > * + * {
+            margin-top: 15px;
+}
+
+        .menu-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 4px 4px 0 #ccc;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .menu-btn .btn-status {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: normal;
+        }
+
+        .menu-btn span:not(.btn-status) {
+            font-weight: bold;
+        }
+
+        .menu-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 #ccc;
+            background: black;
+            color: white;
+        }
+
+        .menu-btn:active span {
+            color: #ccc;
+        }
+
+        .menu-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            background: #eee;
+        }
+
+        /* LEVELS SCREEN */
+        #screen-levels {
+            padding: 0;
+        }
+
+        .levels-header {
+            padding: 10px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #eee;
+        }
+
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            overflow-y: auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .level-item {
+            border: 2px solid black;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            box-shadow: 3px 3px 0 #ccc;
+            background: white;
+            position: relative;
+            padding: 8px;
+            height: 130px;
+            /* Fixed height to accommodate canvas */
+        }
+
+        .level-item:active {
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0 #ccc;
+            background: black;
+            color: white;
+        }
+
+        /* Prevent canvas from interfering with click */
+        .level-preview {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1/1;
+            image-rendering: pixelated;
+            border: 1px solid #ccc;
+            background: white;
+            pointer-events: none;
+        }
+
+        .level-info {
+            text-align: center;
+            width: 100%;
+        }
+
+        .level-title {
+            font-size: 0.8rem;
+            /* Smaller for titles */
+            font-weight: bold;
+            /* Allow wrapping for longer titles */
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.2;
+            margin-bottom: 2px;
+        }
+
+        .level-status {
+            font-size: 0.7rem;
+            margin-top: 2px;
+            text-transform: uppercase;
+            color: #666;
+        }
+
+        .level-item:active .level-status {
+            color: #ccc;
+        }
+
+        /* Status Styles */
+        .level-item.solved {
+            border-color: black;
+        }
+
+        .level-item.solved::after {
+            content: "★";
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 12px;
+            color: black;
+        }
+
+        .level-item:active.solved::after {
+            color: white;
+        }
+
+        .level-item.progress {
+            border-style: solid;
+        }
+
+        /* GAME SCREEN */
+        .game-header {
+            padding: 10px;
+            border-bottom: 2px solid black;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #eee;
+            flex-shrink: 0;
+        }
+
+        .game-title {
+            font-weight: bold;
+            font-family: monospace;
+            text-transform: capitalize;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 60%;
+        }
+
+        .icon-btn {
+            border: 2px solid black;
+            background: white;
+            min-width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 2px 2px 0 black;
+            padding: 0 10px;
+        }
+
+        .icon-btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: none;
+            background: black;
+            color: white;
+        }
+
+        /* NONOGRAM GRID LAYOUT */
+        .puzzle-container {
+            flex-grow: 1;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #fff;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .nonogram-grid {
+            display: grid;
+            gap: 0;
+            border: 2px solid black;
+            background: black;
+            /* Gap color */
+            user-select: none;
+            /* Ensures grid doesn't overflow container */
+            max-width: 100%;
+            max-height: 100%;
+            touch-action: none;
+        }
+
+        .cell {
+            background: white;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            cursor: pointer;
+            position: relative;
+            box-sizing: border-box;
+            font-family: monospace;
+            font-weight: bold;
+            line-height: 1;
+            padding: 0;
+            touch-action: none;
+        }
+
+        /* Hint Cells */
+        .cell.hint {
+            background: #e0e0e0;
+            color: black;
+            cursor: default;
+            border: 1px solid #999;
+        }
+
+        /* Playable Cells */
+        .cell.filled {
+            background-color: var(--filled-cell);
+        }
+
+        .cell.crossed::after {
+            content: "X";
+            font-weight: bold;
+            color: var(--x-color);
+            /* Font size relative to cell size */
+            font-size: 80%;
+        }
+
+        /* Thicker borders for 5x5 blocks */
+        .cell.thick-right {
+            border-right: 2px solid black !important;
+        }
+
+        .cell.thick-bottom {
+            border-bottom: 2px solid black !important;
+        }
+
+        /* TOOLBAR (Mobile) */
+        .toolbar {
+            border-top: 2px solid black;
+            padding: 10px;
+            display: flex;
+            background: #eee;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .toolbar > * + * {
+            margin-left: 10px;
+}
+
+        .tool-btn {
+            flex: 1;
+            max-width: 120px;
+            padding: 10px;
+            border: 2px solid black;
+            background: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 3px 3px 0 black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+        }
+
+        .tool-btn > * + * {
+            margin-left: 8px;
+}
+
+        .tool-btn.active {
+            background: black;
+            color: white;
+            box-shadow: inset 2px 2px 0 #555;
+            transform: translate(2px, 2px);
+        }
+
+        .tool-btn.action-btn {
+            background: #ddd;
+        }
+
+        .tool-btn.action-btn:active {
+            background: black;
+            color: white;
+            box-shadow: none;
+            transform: translate(2px, 2px);
+        }
+
+        /* STATUS */
+        #auth-status {
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            font-size: 0.7rem;
+            color: #666;
+            pointer-events: none;
+        }
+
+        /* MODAL */
+        .modal-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-box {
+            background: white;
+            border: 4px double black;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.5);
+            max-width: 80%;
+            min-width: 280px;
+        }
+
+        .modal-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 10px 20px;
+            font-weight: bold;
+            margin-top: 20px;
+            cursor: pointer;
+            box-shadow: 3px 3px 0 black;
+        }
+
+        .modal-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+            background: black;
+            color: white;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .modal-actions > * + * {
+            margin-left: 10px;
+}
+
+        #loading-msg {
+            margin-top: 20px;
+            font-style: italic;
+            color: #666;
+        }
+    </style>
+    <script src="theme.js?v=18"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="window.location.href='index'">X</div>
+            <span class="title-text" data-i18n="nonograms.title">Nonograms</span>
+        </div>
+
+        <!-- MENU SCREEN -->
+        <div id="screen-menu" class="screen active">
+            <div class="logo-area">
+                <h1 data-i18n="nonograms.logo.title">Nonograms</h1>
+                <p data-i18n="nonograms.logo.subtitle">Logical Painting</p>
+            </div>
+
+            <div class="difficulty-container">
+                <button class="menu-btn" id="btn-easy" onclick="openLevelSelect('easy')" disabled="">
+                    <span data-i18n="nonograms.diff.easy">Easy</span> <span class="btn-status">Loading...</span>
+                </button>
+                <button class="menu-btn" id="btn-medium" onclick="openLevelSelect('medium')" disabled="">
+                    <span data-i18n="nonograms.diff.medium">Medium</span> <span class="btn-status">Loading...</span>
+                </button>
+                <button class="menu-btn" id="btn-hard" onclick="openLevelSelect('hard')" disabled="">
+                    <span data-i18n="nonograms.diff.hard">Hard</span> <span class="btn-status">Loading...</span>
+                </button>
+                <button class="menu-btn" id="btn-expert" onclick="openLevelSelect('expert')" disabled="">
+                    <span data-i18n="nonograms.diff.expert">Expert</span> <span class="btn-status">Loading...</span>
+                </button>
+            </div>
+
+            <div id="loading-msg" data-i18n="nonograms.status.fetching">Fetching puzzles...</div>
+            <div id="auth-status" data-i18n="nonograms.status.local">Local Mode</div>
+        </div>
+
+        <!-- LEVELS SCREEN -->
+        <div id="screen-levels" class="screen">
+            <div class="levels-header">
+                <button class="icon-btn" onclick="showMenu()">←</button>
+                <span class="game-title" id="levels-title" style="flex-grow:1; text-align:center;" data-i18n="nonograms.label.select_level">Select Level</span>
+                <div style="width:30px;"></div> <!-- Spacer to center title -->
+            </div>
+            <div id="levels-grid" class="level-grid">
+                <!-- Injected JS -->
+            </div>
+        </div>
+
+        <!-- GAME SCREEN -->
+        <div id="screen-game" class="screen">
+            <div class="game-header">
+                <button class="icon-btn" onclick="openLevelSelect(currentCategory)">←</button>
+                <span class="game-title" id="puzzle-title" data-i18n="nonograms.label.puzzle">Puzzle</span>
+                <!-- Check button removed from header? Or kept for user check? -->
+                <!-- Keeping it as a "Verify" action is standard Picross -->
+                <button class="icon-btn" onclick="checkWin(true)" data-i18n="nonograms.btn.check">Check</button>
+            </div>
+
+            <div class="puzzle-container" id="puzzle-container">
+                <div id="game-grid" class="nonogram-grid" oncontextmenu="return false;"></div>
+            </div>
+
+            <div class="toolbar">
+                <button class="tool-btn active" id="btn-fill" onclick="setTool('fill')">
+                    <span style="display:inline-block; width:14px; height:14px; background:black; border:1px solid black;"></span>
+                    <span data-i18n="nonograms.btn.fill">Fill</span>
+                </button>
+                <button class="tool-btn" id="btn-mark" onclick="setTool('mark')">
+                    <span style="font-weight:900; font-size:1.2rem;">X</span> <span data-i18n="nonograms.btn.mark">Mark</span>
+                </button>
+                <button class="tool-btn action-btn" onclick="confirmClear()" data-i18n="nonograms.btn.clear">
+                    Clear
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WIN MODAL -->
+    <div id="win-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 style="margin-top:0;" data-i18n="nonograms.modal.win_title">PUZZLE SOLVED!</h2>
+            <p data-i18n="nonograms.modal.win_body">Great pixel logic.</p>
+            <button class="modal-btn" onclick="openLevelSelect(currentCategory)" data-i18n="nonograms.btn.continue">Continue</button>
+        </div>
+    </div>
+
+    <!-- MESSAGE MODAL -->
+    <div id="msg-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="msg-title" style="margin-top:0;" data-i18n="nonograms.modal.msg_title">Status</h3>
+            <p id="msg-body">Message goes here.</p>
+            <button class="modal-btn" onclick="closeModal('msg-modal')" data-i18n="nonograms.btn.ok">OK</button>
+        </div>
+    </div>
+
+    <!-- CLEAR CONFIRM MODAL -->
+    <div id="clear-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 style="margin-top:0;" data-i18n="nonograms.modal.clear_title">Clear Puzzle?</h3>
+            <p data-i18n="nonograms.modal.clear_body">This will erase all your progress on this puzzle.</p>
+            <div class="modal-actions">
+                <button class="modal-btn" onclick="clearBoard()" data-i18n="nonograms.btn.clear">Clear</button>
+                <button class="modal-btn" style="background:#eee;" onclick="closeModal('clear-modal')" data-i18n="nonograms.btn.cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY7x7vVmlYUyVZNLuCCmIQYa6PWFVfZqQ",
+            authDomain: "rekindle-dd1fa.firebaseapp.com",
+            projectId: "rekindle-dd1fa",
+            storageBucket: "rekindle-dd1fa.firebasestorage.app",
+            messagingSenderId: "748026882518",
+            appId: "1:748026882518:web:6877dd4329318070c11c77"
+        };
+
+        let auth = null;
+        let db = null;
+        if (typeof firebase !== 'undefined' && typeof firebase.auth === 'function' && typeof firebase.firestore === 'function') {
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+        }
+
+
+
+        // Note: Persistence disabled due to IndexedDB hangs on some browsers (Safari)
+
+
+        // db.enablePersistence({ synchronizeTabs: true }) ...
+
+        // --- STATE ---
+        let puzzles = [];
+        let categories = {
+            easy: [],
+            medium: [],
+            hard: [],
+            expert: []
+        };
+
+        let progress = {}; // { puzzleId: { solved: bool, grid: [] } }
+        let currentPuzzle = null;
+        let currentCategory = 'easy';
+        let currentGrid = []; // 0=Empty, 1=Filled, 2=Crossed
+        let currentTool = 'fill';
+        let currentUser = null;
+        let saveTimer = null;
+
+        // --- INIT ---
+        window.onload = () => {
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            fetchPuzzles();
+
+            // Handle window resize to adjust grid
+            window.addEventListener('resize', () => {
+                if (currentPuzzle && document.getElementById('screen-game').classList.contains('active')) {
+                    renderGameGrid(); // Re-calculate sizes
+                }
+            });
+
+            const authStatus = document.getElementById('auth-status');
+            if (auth) {
+                auth.onAuthStateChanged(user => {
+                    if (user) {
+                        currentUser = user;
+                        authStatus.innerText = window.t ? window.t('nonograms.status.synced').replace('${email}', user.email) : "Synced: " + user.email;
+                        authStatus.removeAttribute('data-i18n');
+                        loadCloudProgress();
+                    } else {
+                        authStatus.innerText = window.t ? window.t('nonograms.status.guest') : "Guest Mode";
+                        authStatus.removeAttribute('data-i18n');
+                        loadLocalProgress();
+                    }
+                });
+            } else {
+                authStatus.innerText = window.t ? window.t('nonograms.status.local') : "Local Mode";
+                authStatus.removeAttribute('data-i18n');
+                loadLocalProgress();
+            }
+        };
+
+        // Helper to HTML-escape text
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+
+
+
+        async function fetchPuzzles() {
+            const msg = document.getElementById('loading-msg');
+            msg.innerText = window.t ? window.t('nonograms.status.fetching') : "Fetching puzzles...";
+            msg.removeAttribute('data-i18n');
+            try {
+                // Add timestamp to bypass cache
+                const res = await fetch('nonograms.json?v=' + new Date().getTime());
+                if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+
+                const rawPuzzles = await res.json();
+
+                if (!Array.isArray(rawPuzzles)) throw new Error("Invalid JSON format");
+
+                // Reset categories
+                categories = { easy: [], medium: [], hard: [], expert: [] };
+
+                // Add IDs and Categorize
+                puzzles = rawPuzzles.map((p, index) => ({
+                    ...p,
+                    rows: p.rows || p.row_clues || [],
+                    columns: p.columns || p.col_clues || p.cols || [],
+                    width: p.width || (p.columns ? p.columns.length : 0),
+                    height: p.height || (p.rows ? p.rows.length : 0),
+                    id: p.filename || `puzzle_${index}`
+                }));
+
+                puzzles.forEach(p => {
+                    const w = parseInt(p.width);
+                    const h = parseInt(p.height);
+
+                    if (!w || !h || !p.rows.length || !p.columns.length) return;
+
+                    const dim = Math.max(w, h);
+
+                    if (dim <= 10) categories.easy.push(p);
+                    else if (dim <= 20) categories.medium.push(p);
+                    else if (dim <= 30) categories.hard.push(p);
+                    else categories.expert.push(p);
+                });
+
+                // Sort each category by total pixels
+                for (const category in categories) {
+                    categories[category].sort((a, b) => (a.width * a.height) - (b.width * b.height));
+                }
+
+                msg.style.display = 'none';
+                updateMenuButtons();
+
+            } catch (e) {
+                console.error(e);
+                msg.innerText = window.t ? window.t('nonograms.status.error').replace('${msg}', e.message) : "Error loading puzzles: " + e.message;
+                msg.style.color = "red";
+                msg.removeAttribute('data-i18n');
+            }
+        }
+
+        function updateMenuButtons() {
+            for (const [cat, list] of Object.entries(categories)) {
+                const btn = document.getElementById(`btn-${cat}`);
+                if (!btn) continue;
+                const statusSpan = btn.querySelector('.btn-status');
+                const diffSpan = btn.querySelector('span:not(.btn-status)');
+
+                if (list.length === 0) {
+                    btn.disabled = true;
+                    if (statusSpan) statusSpan.innerText = window.t ? window.t('nonograms.status.zero_found') : "(0 Found)";
+                } else {
+                    btn.disabled = false;
+                    if (statusSpan) statusSpan.innerText = window.t ? window.t('nonograms.status.puzzles_found').replace('${n}', list.length) : `(${list.length} Puzzles)`;
+                }
+                if (statusSpan) statusSpan.removeAttribute('data-i18n');
+            }
+        }
+
+        // --- NAVIGATION ---
+        function showMenu() {
+            closeAllModals();
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-menu').classList.add('active');
+            currentPuzzle = null;
+        }
+
+        function openLevelSelect(category) {
+            closeAllModals();
+            currentCategory = category;
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-levels').classList.add('active');
+
+            const categoryTitle = window.t ? window.t(`nonograms.diff.${category}`) : category.charAt(0).toUpperCase() + category.slice(1);
+            document.getElementById('levels-title').innerText = categoryTitle;
+            document.getElementById('levels-title').removeAttribute('data-i18n');
+
+            renderLevelGrid(category);
+        }
+
+        function renderLevelGrid(category) {
+            const container = document.getElementById('levels-grid');
+            container.innerHTML = '';
+
+            const list = categories[category];
+
+            list.forEach((puzzle, index) => {
+                const pId = puzzle.id;
+                const pData = progress[pId] || {};
+
+                let statusText = window.t ? window.t('nonograms.status.new') : "New";
+                let statusClass = "";
+
+                if (pData.solved) {
+                    statusText = window.t ? window.t('nonograms.status.solved') : "Solved";
+                    statusClass = "solved";
+                } else if (pData.grid && pData.grid.some(c => c !== 0)) {
+                    statusText = window.t ? window.t('nonograms.status.resume') : "Resume";
+                    statusClass = "progress";
+                }
+
+                const div = document.createElement('div');
+                div.className = `level-item ${statusClass}`;
+                div.onclick = () => startPuzzle(puzzle);
+
+                // Create Canvas Preview
+                const canvas = document.createElement('canvas');
+                canvas.className = 'level-preview';
+                canvas.width = puzzle.width;
+                canvas.height = puzzle.height;
+
+                const ctx = canvas.getContext('2d');
+                // Fill white background
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw grid progress if available
+                if (pData.grid && pData.grid.length === (puzzle.width * puzzle.height)) {
+                    for (let i = 0; i < pData.grid.length; i++) {
+                        const val = pData.grid[i];
+                        const x = i % puzzle.width;
+                        const y = Math.floor(i / puzzle.width);
+
+                        if (val === 1) { // Filled
+                            ctx.fillStyle = 'black';
+                            ctx.fillRect(x, y, 1, 1);
+                        } else if (val === 2) { // Crossed
+                            ctx.fillStyle = '#ccc';
+                            ctx.fillRect(x, y, 1, 1);
+                        }
+                    }
+                }
+
+                // Info Container
+                const info = document.createElement('div');
+                info.className = 'level-info';
+                const puzzleTitle = puzzle.title || (window.t ? window.t('nonograms.label.puzzle') + ' ' + (index + 1) : `Puzzle ${index + 1}`);
+                info.innerHTML = `
+                    <div class="level-title">${puzzleTitle}</div>
+                    <div class="level-status">${statusText}</div>
+                `;
+
+                div.appendChild(canvas);
+                div.appendChild(info);
+
+                container.appendChild(div);
+            });
+        }
+
+        function startPuzzle(puzzle) {
+            currentPuzzle = puzzle;
+            document.getElementById('puzzle-title').innerText = puzzle.title || (window.t ? window.t('nonograms.label.puzzle') : "Puzzle");
+            document.getElementById('puzzle-title').removeAttribute('data-i18n');
+
+            // Load state or init new
+            const saved = progress[puzzle.id];
+            const totalCells = puzzle.width * puzzle.height;
+
+            if (saved && saved.grid && saved.grid.length === totalCells) {
+                currentGrid = [...saved.grid];
+            } else {
+                currentGrid = new Array(totalCells).fill(0);
+            }
+
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-game').classList.add('active');
+
+            // Short delay to allow layout to settle before calculating size
+            setTimeout(renderGameGrid, 50);
+        }
+
+        // --- GRID RENDER (DYNAMIC SIZING) ---
+        function renderGameGrid() {
+            if (!currentPuzzle) return;
+
+            const container = document.getElementById('game-grid');
+            const wrapper = document.getElementById('puzzle-container');
+            container.innerHTML = '';
+
+            const pWidth = parseInt(currentPuzzle.width);
+            const pHeight = parseInt(currentPuzzle.height);
+            const rowClues = currentPuzzle.rows;
+            const colClues = currentPuzzle.columns;
+
+            // 1. Calculate Max Hint Depths
+            let maxRowHints = 0;
+            rowClues.forEach(arr => maxRowHints = Math.max(maxRowHints, arr.length));
+
+            let maxColHints = 0;
+            colClues.forEach(arr => maxColHints = Math.max(maxColHints, arr.length));
+
+            // Total Grid Dimensions (Hints + Playable Area)
+            const totalCols = maxRowHints + pWidth;
+            const totalRows = maxColHints + pHeight;
+
+            // 2. Calculate Cell Size to Fill Window
+            const availWidth = (wrapper.clientWidth || window.innerWidth) - 20;
+            const availHeight = (wrapper.clientHeight || window.innerHeight) - 120;
+
+            const sizeW = Math.floor(availWidth / totalCols);
+            const sizeH = Math.floor(availHeight / totalRows);
+
+            let cellSize = Math.min(sizeW, sizeH);
+            if (cellSize < 12) cellSize = 12; // Minimum legible size
+            if (cellSize > 40) cellSize = 40; // Maximum size
+
+            const fontSize = Math.max(8, Math.floor(cellSize * 0.6));
+
+            container.style.gridTemplateColumns = `repeat(${totalCols}, ${cellSize}px)`;
+            container.style.gridTemplateRows = `repeat(${totalRows}, ${cellSize}px)`;
+            container.style.width = `${totalCols * cellSize}px`;
+            container.style.height = `${totalRows * cellSize}px`;
+
+            // --- RENDER CELLS ---
+            for (let r = 0; r < totalRows; r++) {
+                for (let c = 0; c < totalCols; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.style.fontSize = `${fontSize}px`;
+
+                    // Zone 1: Top-Left Corner (Empty)
+                    if (r < maxColHints && c < maxRowHints) {
+                        cell.className += ' hint';
+                        cell.style.background = 'black';
+                    }
+                    // Zone 2: Top Column Hints
+                    else if (r < maxColHints && c >= maxRowHints) {
+                        cell.className += ' hint';
+                        const pc = c - maxRowHints;
+                        const clues = colClues[pc] || [];
+                        const offset = maxColHints - clues.length;
+                        if (r >= offset) {
+                            const clueIndex = r - offset;
+                            cell.innerText = clues[clueIndex];
+                        }
+                        if (r === maxColHints - 1) cell.style.borderBottom = '2px solid black';
+                        if ((pc + 1) % 5 === 0 && pc !== pWidth - 1) cell.style.borderRight = '2px solid black';
+                    }
+                    // Zone 3: Left Row Hints
+                    else if (r >= maxColHints && c < maxRowHints) {
+                        cell.className += ' hint';
+                        const pr = r - maxColHints;
+                        const clues = rowClues[pr] || [];
+                        const offset = maxRowHints - clues.length;
+                        if (c >= offset) {
+                            const clueIndex = c - offset;
+                            cell.innerText = clues[clueIndex];
+                        }
+                        if (c === maxRowHints - 1) cell.style.borderRight = '2px solid black';
+                        if ((pr + 1) % 5 === 0 && pr !== pHeight - 1) cell.style.borderBottom = '2px solid black';
+                    }
+                    // Zone 4: Playable Grid
+                    else {
+                        cell.className += ' playable';
+                        const pr = r - maxColHints;
+                        const pc = c - maxRowHints;
+                        const idx = pr * pWidth + pc;
+
+                        if ((pc + 1) % 5 === 0 && pc !== pWidth - 1) cell.classList.add('thick-right');
+                        if ((pr + 1) % 5 === 0 && pr !== pHeight - 1) cell.classList.add('thick-bottom');
+
+                        const val = currentGrid[idx];
+                        if (val === 1) cell.classList.add('filled');
+                        if (val === 2) cell.classList.add('crossed');
+
+                        // Use pointerdown for better touch response
+                        cell.onpointerdown = (e) => handleInput(idx, e);
+                        cell.oncontextmenu = (e) => e.preventDefault();
+                    }
+
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        // --- GAMEPLAY ---
+        function setTool(tool) {
+            currentTool = tool;
+            document.getElementById('btn-fill').classList.remove('active');
+            document.getElementById('btn-mark').classList.remove('active');
+            document.getElementById(`btn-${tool}`).classList.add('active');
+        }
+
+        function handleInput(idx, event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            let action = currentTool;
+            if (event.button === 2) action = 'mark'; // Right click forces mark
+
+            const currentVal = currentGrid[idx];
+            let newVal = currentVal;
+
+            if (action === 'fill') {
+                newVal = (currentVal === 1) ? 0 : 1;
+            } else {
+                newVal = (currentVal === 2) ? 0 : 2;
+            }
+
+            currentGrid[idx] = newVal;
+
+            // Update DOM directly for performance
+            const playables = document.querySelectorAll('.cell.playable');
+            if (playables[idx]) {
+                const cell = playables[idx];
+                cell.classList.remove('filled', 'crossed');
+                if (newVal === 1) cell.classList.add('filled');
+                if (newVal === 2) cell.classList.add('crossed');
+            }
+
+            saveProgress();
+        }
+
+        // --- CLEAR LOGIC ---
+        function confirmClear() {
+            document.getElementById('clear-modal').style.display = 'flex';
+        }
+
+        function clearBoard() {
+            if (!currentPuzzle) return;
+            const totalCells = currentPuzzle.width * currentPuzzle.height;
+            currentGrid = new Array(totalCells).fill(0);
+
+            // Unsolve if previously solved
+            if (progress[currentPuzzle.id]) {
+                progress[currentPuzzle.id].solved = false;
+            }
+
+            renderGameGrid();
+            saveProgress();
+            closeModal('clear-modal');
+        }
+
+        function checkWin(manual) {
+            if (!currentPuzzle) return;
+            const width = parseInt(currentPuzzle.width);
+            const height = parseInt(currentPuzzle.height);
+            const rowClues = currentPuzzle.rows;
+            const colClues = currentPuzzle.columns;
+
+            for (let r = 0; r < height; r++) {
+                let line = [];
+                for (let c = 0; c < width; c++) {
+                    line.push(currentGrid[r * width + c] === 1 ? 1 : 0);
+                }
+                if (!validateLine(line, rowClues[r])) {
+                    if (manual) {
+                        const title = window.t ? window.t('nonograms.msg.incorrect_title') : "Incorrect";
+                        const msg = window.t ? window.t('nonograms.msg.incorrect_row').replace('${n}', r + 1) : `Row ${r + 1} does not match.`;
+                        showMsg(title, msg);
+                    }
+                    return;
+                }
+            }
+
+            for (let c = 0; c < width; c++) {
+                let line = [];
+                for (let r = 0; r < height; r++) {
+                    line.push(currentGrid[r * width + c] === 1 ? 1 : 0);
+                }
+                if (!validateLine(line, colClues[c])) {
+                    if (manual) {
+                        const title = window.t ? window.t('nonograms.msg.incorrect_title') : "Incorrect";
+                        const msg = window.t ? window.t('nonograms.msg.incorrect_col').replace('${n}', c + 1) : `Column ${c + 1} does not match.`;
+                        showMsg(title, msg);
+                    }
+                    return;
+                }
+            }
+
+            // Mark solved
+            if (!progress[currentPuzzle.id]) progress[currentPuzzle.id] = {};
+            progress[currentPuzzle.id].solved = true;
+
+            saveProgress();
+            document.getElementById('win-modal').style.display = 'flex';
+        }
+
+        function validateLine(line, clues) {
+            let runs = [];
+            let count = 0;
+            for (let val of line) {
+                if (val === 1) count++;
+                else if (count > 0) { runs.push(count); count = 0; }
+            }
+            if (count > 0) runs.push(count);
+
+            if (!clues || clues.length === 0) return runs.length === 0;
+
+            if (runs.length !== clues.length) return false;
+            for (let i = 0; i < clues.length; i++) {
+                if (runs[i] !== clues[i]) return false;
+            }
+            return true;
+        }
+
+        // --- MODALS ---
+        function showMsg(title, msg) {
+            document.getElementById('msg-title').innerText = title || (window.t ? window.t('nonograms.modal.msg_title') : "Status");
+            document.getElementById('msg-title').removeAttribute('data-i18n');
+            document.getElementById('msg-body').innerText = msg;
+            document.getElementById('msg-modal').style.display = 'flex';
+        }
+
+        function closeMsgModal() {
+            document.getElementById('msg-modal').style.display = 'none';
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function closeAllModals() {
+            document.querySelectorAll('.modal-overlay').forEach(el => el.style.display = 'none');
+        }
+
+        // --- PROGRESS SYNC ---
+        function loadLocalProgress() {
+            const saved = localStorage.getItem('rekindle_picross_progress');
+            if (saved) progress = JSON.parse(saved);
+        }
+
+        function loadCloudProgress() {
+            if (!db || !currentUser) {
+                loadLocalProgress();
+                return;
+            }
+            db.collection('users').doc(currentUser.uid).collection('apps').doc('picross')
+                .get().then((doc) => {
+                    if (doc.exists) progress = doc.data().progress || {};
+                    else loadLocalProgress();
+                });
+        }
+
+        function saveProgress() {
+            if (currentPuzzle) {
+                // Ensure object exists
+                if (!progress[currentPuzzle.id]) progress[currentPuzzle.id] = {};
+
+                // Update grid and persist solved state if already true
+                progress[currentPuzzle.id].grid = currentGrid;
+                // Note: .solved is set in checkWin, we don't overwrite it to false here usually
+            }
+            localStorage.setItem('rekindle_picross_progress', JSON.stringify(progress));
+
+            if (currentUser && db) {
+                clearTimeout(saveTimer);
+                saveTimer = setTimeout(() => {
+                    db.collection('users').doc(currentUser.uid).collection('apps').doc('picross').set({
+                        progress: progress
+                    }, { merge: true });
+                }, 2000);
+            }
+        }
+
+
+
+    </script>
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675" data-utcoffset="11"></script>
+
+
+</body></html>

@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+
+    <title>Contacts</title>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+            --stripe-pattern: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+            --highlight: #000000;
+            --highlight-text: #ffffff;
+        }
+
+        body {
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -o-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            font-family: "Geneva", "Verdana", sans-serif;
+            background-color: #e5e5e5;
+            /* Background managed by settings */
+
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: 4px 4px 0px black;
+            display: flex;
+            flex-direction: column;
+            min-height: 90vh;
+            width: 100%;
+            max-width: 900px;
+            position: relative;
+        }
+
+        .window.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: calc(100vw / var(--rekindle-scale, 1));
+            height: calc(100vh / var(--rekindle-scale, 1));
+            max-width: none;
+            max-height: none;
+            border: none;
+            box-shadow: none;
+            z-index: 2000;
+            transform-origin: top left !important;
+        }
+
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0 10px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: var(--stripe-pattern);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+
+
+        /* CONTROLS (Right side of Title Bar) */
+        .title-controls {
+            position: absolute;
+            right: 10px;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+        }
+
+        .title-controls>*+* {
+            margin-left: 10px;
+        }
+
+        .icon-btn {
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            padding: 0;
+            flex-shrink: 0;
+            margin-left: 5px;
+        }
+
+        .icon-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* Icon State Toggles */
+        .icon-contract {
+            display: none;
+        }
+
+        .window.fullscreen .icon-expand {
+            display: none;
+        }
+
+        .window.fullscreen .icon-contract {
+            display: inline;
+        }
+
+        /* ADD BTN */
+        .add-btn {
+            z-index: 2;
+            background: white;
+            border: 2px solid black;
+            font-weight: bold;
+            padding: 2px 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            box-shadow: 2px 2px 0 black;
+            display: none;
+        }
+
+        .add-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        .content-area {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        .contact-list-pane {
+            width: 40%;
+            border-right: 2px solid black;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        .search-box {
+            padding: 10px;
+            border-bottom: 2px solid black;
+            background: #eee;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            border: 2px solid black;
+            box-sizing: border-box;
+        }
+
+        #list-container {
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .contact-item {
+            padding: 12px 10px;
+            border-bottom: 1px solid #ccc;
+            cursor: pointer;
+            font-size: 1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .contact-item.selected {
+            background-color: var(--highlight);
+            color: var(--highlight-text);
+        }
+
+        .details-pane {
+            width: 60%;
+            padding: 20px;
+            overflow-y: auto;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            border-bottom: 4px double black;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .contact-name {
+            font-size: 1.8rem;
+            font-weight: 900;
+            margin: 0;
+        }
+
+        .contact-org {
+            font-size: 1rem;
+            font-style: italic;
+            color: #555;
+            margin-top: 5px;
+        }
+
+        .field-group {
+            margin-bottom: 20px;
+        }
+
+        .field-label {
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #ccc;
+            display: block;
+        }
+
+        .field-value {
+            font-size: 1.2rem;
+            font-family: "Courier New", monospace;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .del-btn {
+            color: red;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+        }
+        .contact-btn-row > * + * { margin-left: 10px; }
+
+        /* Only native */
+
+        #auth-overlay {
+            position: fixed;
+            /* Changed to fixed for fullscreen */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            text-align: center;
+        }
+
+        .sys-btn {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: white;
+            color: black;
+            border: 2px solid black;
+            cursor: pointer;
+            box-shadow: 4px 4px 0 black;
+        }
+
+        .sys-btn:active {
+            background: black;
+            color: white;
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        /* MODAL */
+        #modal-overlay,
+        #sync-choice-modal {
+            display: none;
+            position: fixed;
+            /* Changed to fixed for fullscreen */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-box {
+            background: white;
+            border: 2px solid black;
+            box-shadow: 8px 8px 0 black;
+            padding: 20px;
+            width: 300px;
+            text-align: center;
+        }
+
+        .modal-box input {
+            width: 90%;
+            margin: 5px 0;
+        }
+
+        .modal-btns {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .modal-btns>*+* {
+            margin-left: 10px;
+        }
+
+        #status-bar {
+            border-top: 2px solid black;
+            padding: 4px;
+            font-size: 0.75rem;
+            background: #eee;
+            text-align: center;
+            flex-shrink: 0;
+        }
+    </style>
+    <script src="theme.js?v=18"></script>
+    <script src="js/i18n.js"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="window.location.href='index'">X</div>
+            <span class="title-text" id="app-title" data-i18n="app.contacts.name">Contacts</span>
+            <div class="title-controls">
+                <button class="add-btn" id="add-btn" onclick="openModal()" data-i18n="contacts.btn.new">+ New</button>
+                <button class="icon-btn" onclick="toggleFullScreen()" title="Full Screen">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                        stroke-linecap="square" stroke-linejoin="miter">
+                        <path class="icon-expand" d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1"></path>
+                        <path class="icon-contract" d="M21 9H15V3M21 3l-6 6M3 15h6v6M3 21l6-6"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div class="contact-list-pane">
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Search..."
+                        data-i18n-placeholder="contacts.ph.search" onkeyup="filterContacts()">
+                </div>
+                <div id="list-container"></div>
+            </div>
+            <div class="details-pane" id="details-pane">
+                <div style="text-align:center; margin-top:50px; font-style:italic; color:#666;"
+                    data-i18n="contacts.details.select">Select a contact.</div>
+            </div>
+        </div>
+
+        <div id="status-bar" data-i18n="contacts.status.local">Local Mode</div>
+
+        <div id="auth-overlay">
+            <h2 style="margin-bottom:10px;" data-i18n="contacts.auth.title">Google Contacts</h2>
+            <p style="margin-bottom:20px;" data-i18n="contacts.auth.desc">Connect to access address book.</p>
+            <button class="sys-btn" onclick="oauthSignIn()" data-i18n="contacts.auth.connect">Connect</button>
+        </div>
+    </div>
+
+    <!-- ADD MODAL -->
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <h3 data-i18n="contacts.modal.new">New Contact</h3>
+            <input type="text" id="c-name" placeholder="Name" data-i18n-placeholder="contacts.ph.name">
+            <input type="text" id="c-title" placeholder="Job Title" data-i18n-placeholder="contacts.ph.job">
+            <input type="text" id="c-org" placeholder="Organization" data-i18n-placeholder="contacts.ph.org">
+            <input type="text" id="c-phone" placeholder="Phone" data-i18n-placeholder="contacts.ph.phone">
+            <input type="text" id="c-email" placeholder="Email" data-i18n-placeholder="contacts.ph.email">
+            <input type="text" id="c-address" placeholder="Address" data-i18n-placeholder="contacts.ph.address">
+            <input type="text" id="c-website" placeholder="Website (url)" data-i18n-placeholder="contacts.ph.website">
+            <input type="text" id="c-birthday" placeholder="Birthday (MM/DD/YYYY)"
+                data-i18n-placeholder="contacts.ph.birthday">
+            <textarea id="c-notes" placeholder="Notes" data-i18n-placeholder="contacts.ph.notes"
+                style="width:90%; height:60px; margin:5px 0; border:2px solid black; font-family:inherit; padding:5px;"></textarea>
+            <div style="margin-top: 15px; display: flex; justify-content: center">
+                <button class="sys-btn" style="padding:5px 15px; font-size:1rem; box-shadow:2px 2px 0 black;"
+                    onclick="saveNativeContact()" data-i18n="btn.save">Save</button>
+                <button class="sys-btn"
+                    style="padding:5px 15px; font-size:1rem; box-shadow:2px 2px 0 black;; margin-left: 10px"
+                    onclick="document.getElementById('modal-overlay').style.display='none'"
+                    data-i18n="btn.cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELETE CONFIRM MODAL -->
+    <div id="delete-confirm-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index:10002; align-items:center; justify-content:center;">
+        <div class="modal-box">
+            <h3 data-i18n="contacts.modal.delete.title">Delete Contact?</h3>
+            <p data-i18n="contacts.modal.delete.desc">Are you sure you want to delete this contact?</p>
+            <div class="modal-btns">
+                <button class="sys-btn" style="padding:10px 20px; font-size:1rem; color:red; border-color:red;"
+                    onclick="confirmDelete()" data-i18n="contacts.btn.delete">Delete</button>
+                <button class="sys-btn" style="padding:10px 20px; font-size:1rem;" onclick="closeDeleteModal()"
+                    data-i18n="btn.cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYNC CHOICE MODAL -->
+    <div id="sync-choice-modal">
+        <div class="modal-box">
+            <h3 data-i18n="contacts.sync.title">Google Contacts Integration</h3>
+            <p style="margin:15px 0;" data-i18n="contacts.sync.desc">Enable Google Contacts sync or continue with Local
+                Storage?</p>
+            <div class="modal-btns">
+                <button class="sys-btn" style="padding:10px 20px; font-size:1rem;" onclick="setSyncPreference(true)"
+                    data-i18n="calendar.sync.google">Use
+                    Google</button>
+                <button class="sys-btn" style="padding:10px 20px; font-size:1rem;" onclick="setSyncPreference(false)"
+                    data-i18n="calendar.sync.local">Use Local</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://apis.google.com/js/api.js"></script>
+
+    <script>
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY7x7vVmlYUyVZNLuCCmIQYa6PWFVfZqQ",
+            authDomain: "rekindle-dd1fa.firebaseapp.com",
+            projectId: "rekindle-dd1fa",
+            storageBucket: "rekindle-dd1fa.firebasestorage.app",
+            messagingSenderId: "748026882518",
+            appId: "1:748026882518:web:6877dd4329318070c11c77"
+        };
+
+        // Google Config
+        const CLIENT_ID = '1000949048966-kkjtgmrsdonk3bm89rvlo0punc519vgj.apps.googleusercontent.com';
+        const SCOPES = 'https://www.googleapis.com/auth/contacts.readonly';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/people/v1/rest';
+
+        let contacts = [];
+        let currentUser = null;
+        let db = null;
+        let auth = null;
+        let googleEnabled = false;
+        let cardDavUrl = localStorage.getItem('rekindle_carddav_url');
+
+        // Edit/Delete State
+        let contactToDeleteId = null;
+        let editingContactId = null;
+
+        window.onload = function () {
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            if (window.rekindleApplyDefaultFullscreen) window.rekindleApplyDefaultFullscreen();
+
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+
+
+            // Note: Persistence disabled due to IndexedDB hangs on some browsers (Safari)
+
+            // db.enablePersistence({ synchronizeTabs: true }) ...
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    checkSyncSettings();
+                } else {
+                    initNativeMode();
+                }
+            });
+        };
+
+
+        function checkSyncSettings() {
+            const setting = localStorage.getItem('rekindle_google_contacts_enabled');
+
+            if (setting === 'true') {
+                googleEnabled = true;
+                initGoogleMode();
+            } else if (setting === 'false') {
+                googleEnabled = false;
+                document.getElementById('status-bar').innerText = "Synced: " + currentUser.email;
+                initNativeMode();
+            } else {
+                // Not set
+                document.getElementById('sync-choice-modal').style.display = 'flex';
+            }
+        }
+
+        function setSyncPreference(enableGoogle) {
+            document.getElementById('sync-choice-modal').style.display = 'none';
+            localStorage.setItem('rekindle_google_contacts_enabled', enableGoogle);
+
+            // Save preference to cloud
+            db.collection('users').doc(currentUser.uid).collection('settings').doc('integrations').set({
+                google_contacts: enableGoogle
+            }, { merge: true });
+
+            if (enableGoogle) {
+                googleEnabled = true;
+                initGoogleMode();
+            } else {
+                googleEnabled = false;
+                document.getElementById('status-bar').innerText = currentUser ? "Synced: " + currentUser.email : "Local Mode";
+                initNativeMode();
+            }
+        }
+
+        // --- RENDER ---
+        function renderList(list) {
+            const container = document.getElementById('list-container');
+            container.innerHTML = '';
+
+            // Sort by name
+            if (list && list.length > 0) {
+                list.sort((a, b) => {
+                    const nameA = a.name || (a.names ? a.names[0].displayName : "");
+                    const nameB = b.name || (b.names ? b.names[0].displayName : "");
+                    return nameA.localeCompare(nameB);
+                });
+            }
+
+            if (!list || list.length === 0) {
+                container.innerHTML = `<div style="padding:20px;text-align:center;">${window.t('contacts.list.empty', 'No contacts.')}</div>`;
+                return;
+            }
+            list.forEach(person => {
+                const name = person.name || (person.names ? person.names[0].displayName : "No Name");
+                const div = document.createElement('div');
+                div.className = 'contact-item';
+                div.innerText = name;
+                div.onclick = () => showDetails(person, div);
+                container.appendChild(div);
+            });
+        }
+
+        function showDetails(person, el) {
+            document.querySelectorAll('.contact-item').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+
+            const pane = document.getElementById('details-pane');
+            const name = person.name || (person.names ? person.names[0].displayName : window.t('contacts.details.noname', "No Name"));
+            const org = person.org || (person.organizations ? person.organizations[0].name : "");
+            const title = person.title || (person.organizations ? person.organizations[0].title : "");
+
+            const phone = person.phone || (person.phoneNumbers ? person.phoneNumbers[0].value : "");
+            const email = person.email || (person.emailAddresses ? person.emailAddresses[0].value : "");
+
+            const address = person.address || (person.addresses ? person.addresses[0].formattedValue : "");
+            const website = person.website || (person.urls ? person.urls[0].value : "");
+
+            let birthday = person.birthday || "";
+            if (!birthday && person.birthdays && person.birthdays[0] && person.birthdays[0].date) {
+                const d = person.birthdays[0].date;
+                if (d.year) birthday = `${d.month}/${d.day}/${d.year}`;
+                else birthday = `${d.month}/${d.day}`;
+            }
+
+            const notes = person.note || (person.biographies ? person.biographies[0].value : "");
+
+            // Only show delete/edit button if editing is allowed (native/cloud)
+            const isReadOnly = googleEnabled || cardDavUrl;
+
+            // Store reference for editing
+            window.currentSelectedContact = person;
+
+            let html = `
+                <div class="card-header">
+                    <div>
+                        <h2 class="contact-name">${name}</h2>
+                        <div class="contact-org">${title ? title + (org ? ", " : "") : ""}${org}</div>
+                    </div>
+                    ${!isReadOnly ? `
+                        <div class="contact-btn-row" style="display:flex;">
+                            <span class="del-btn" style="display:block; color:black; border:2px solid black; padding:0 5px;" onclick="editContact()">${window.t('contacts.data.edit', 'Edit')}</span>
+                            <span class="del-btn" style="display:block; color:black; border:2px solid black; padding:0 5px;" onclick="deleteContact('${person.id}')">${window.t('contacts.data.delete', 'Delete')}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            if (phone) html += `<div class="field-group"><span class="field-label">${window.t('contacts.label.phone', 'Phone')}</span><span class="field-value">${phone}</span></div>`;
+            if (email) html += `<div class="field-group"><span class="field-label">${window.t('contacts.label.email', 'Email')}</span><span class="field-value">${email}</span></div>`;
+
+            if (address) html += `<div class="field-group"><span class="field-label">${window.t('contacts.label.address', 'Address')}</span><span class="field-value" style="white-space: pre-wrap;">${address}</span></div>`;
+
+            if (website) html += `<div class="field-group"><span class="field-label">${window.t('contacts.label.website', 'Website')}</span><span class="field-value"><a href="${website}" target="_blank">${website}</a></span></div>`;
+
+            if (birthday) html += `<div class="field-group"><span class="field-label">${window.t('contacts.label.birthday', 'Birthday')}</span><span class="field-value">${birthday}</span></div>`;
+
+            if (notes) html += `<div class="field-group"><span class="field-label">${window.t('contacts.label.notes', 'Notes')}</span><span class="field-value" style="font-size: 1rem; white-space: pre-wrap;">${notes}</span></div>`;
+
+            pane.innerHTML = html;
+        }
+
+        function filterContacts() {
+            const q = document.getElementById('search-input').value.toLowerCase();
+            const filtered = contacts.filter(p => {
+                const n = p.name || (p.names ? p.names[0].displayName : "");
+                return n.toLowerCase().includes(q);
+            });
+            renderList(filtered);
+        }
+
+        // --- GOOGLE ---
+        function initGoogleMode() {
+            document.getElementById('app-title').innerText = window.t('app.contacts.name', "Contacts") + " (Google)";
+            document.getElementById('status-bar').innerText = window.t('common.loading', "Loading...");
+            gapi.load('client', async () => {
+                try {
+                    await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
+
+                    const fragmentString = location.hash.substring(1);
+                    const params = new URLSearchParams(fragmentString);
+                    const newAccessToken = params.get('access_token');
+
+                    if (newAccessToken) {
+                        localStorage.setItem('google_contacts_token', newAccessToken);
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        gapi.client.setToken({ access_token: newAccessToken });
+                        document.getElementById('auth-overlay').style.display = 'none';
+                        await loadGoogleContacts();
+                    } else {
+                        const token = localStorage.getItem('google_contacts_token');
+                        if (token) {
+                            gapi.client.setToken({ access_token: token });
+                            document.getElementById('auth-overlay').style.display = 'none';
+                            await loadGoogleContacts();
+                        } else {
+                            // Auto-login logic: check for error to avoid loops, else redirect
+                            if (!location.hash.includes('error=')) {
+                                // Show connecting state in overlay briefly before redirect
+                                document.getElementById('status-bar').innerText = window.t('auth.redirecting', "Redirecting...");
+                                document.getElementById('auth-overlay').style.display = 'flex';
+                                document.querySelector('#auth-overlay h2').innerText = window.t('auth.redirecting', "Redirecting...");
+                                document.querySelector('#auth-overlay p').innerText = window.t('auth.refreshing', "Refreshing Google Session");
+                                oauthSignIn();
+                            } else {
+                                document.getElementById('status-bar').innerText = window.t('auth.failed', "Login Failed");
+                                document.getElementById('auth-overlay').style.display = 'flex';
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to initialize Google API:', JSON.stringify(e));
+                    document.getElementById('status-bar').innerText = window.t('contacts.status.error', "Error");
+                }
+            });
+        }
+
+        function oauthSignIn() {
+            const endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+            const form = document.createElement('form');
+            form.setAttribute('method', 'GET');
+            form.setAttribute('action', endpoint);
+            const params = { 'client_id': CLIENT_ID, 'redirect_uri': window.location.href.split('#')[0], 'response_type': 'token', 'scope': SCOPES };
+            for (var p in params) {
+                var input = document.createElement('input');
+                input.setAttribute('type', 'hidden');
+                input.setAttribute('name', p);
+                input.setAttribute('value', params[p]);
+                form.appendChild(input);
+            }
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function handleUnauthorized() {
+            console.warn("Unauthorized (401). Clearing token and redirecting...");
+            localStorage.removeItem('google_contacts_token');
+            document.getElementById('status-bar').innerText = window.t('auth.failed', "Login Failed");
+            // Prevent rapid redirect loops
+            const lastAuth = sessionStorage.getItem('last_auth_attempt') || 0;
+            const now = Date.now();
+            if (now - lastAuth < 5000) {
+                console.error("Auth loop detected.");
+                document.getElementById('auth-overlay').style.display = 'flex';
+                document.querySelector('#auth-overlay h2').innerText = window.t('auth.failed', "Login Failed");
+                document.querySelector('#auth-overlay p').innerText = window.t('auth.retry', "Please try again manually.");
+                return;
+            }
+            sessionStorage.setItem('last_auth_attempt', now.toString());
+            oauthSignIn();
+        }
+
+        async function loadGoogleContacts() {
+            document.getElementById('status-bar').innerText = window.t('tasks.status.syncing', "Syncing...");
+            try {
+                contacts = [];
+                let pageToken = undefined;
+                do {
+                    const params = {
+                        'resourceName': 'people/me',
+                        'pageSize': 1000,
+                        'personFields': 'names,phoneNumbers,emailAddresses,organizations,addresses,urls,birthdays,biographies',
+                        'sortOrder': 'FIRST_NAME_ASCENDING'
+                    };
+                    if (pageToken) params.pageToken = pageToken;
+                    const res = await gapi.client.people.people.connections.list(params);
+                    const page = res.result.connections || [];
+                    contacts = contacts.concat(page);
+                    pageToken = res.result.nextPageToken;
+                } while (pageToken);
+                renderList(contacts);
+                document.getElementById('status-bar').innerText = window.t('status.synced', "Synced: ") + "Google";
+            } catch (e) {
+                if (e.status === 401) {
+                    // Token expired during use, re-auth
+                    handleUnauthorized();
+                } else {
+                    document.getElementById('status-bar').innerText = window.t('contacts.status.error', "Error");
+                }
+            }
+        }
+
+        // --- NATIVE / CARDDAV ---
+        function initNativeMode() {
+            document.getElementById('app-title').innerText = window.t('app.contacts.name', "Contacts");
+
+            if (cardDavUrl) {
+                document.getElementById('add-btn').style.display = 'none';
+                loadCardDAVContacts();
+            } else {
+                document.getElementById('add-btn').style.display = 'block';
+                if (currentUser) loadCloudContacts();
+                else loadLocalContacts();
+            }
+        }
+
+        function loadLocalContacts() {
+            contacts = JSON.parse(localStorage.getItem('rekindle_contacts_local')) || [];
+            renderList(contacts);
+        }
+
+        function loadCloudContacts() {
+            db.collection('users').doc(currentUser.uid).collection('contacts').onSnapshot(snap => {
+                contacts = [];
+                snap.forEach(doc => contacts.push({ id: doc.id, ...doc.data() }));
+                renderList(contacts);
+            });
+        }
+
+        async function loadCardDAVContacts() {
+            document.getElementById('status-bar').innerText = "Fetching CardDAV...";
+            // Use proxy to fetch VCF file
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(cardDavUrl)}`;
+
+            try {
+                const res = await fetch(proxyUrl);
+                const text = await res.text();
+
+                if (!text || text.trim() === "") throw new Error("Empty VCF");
+
+                contacts = parseVCF(text);
+                document.getElementById('status-bar').innerText = window.t('contacts.status.synced', "Synced (CardDAV)");
+                renderList(contacts);
+            } catch (e) {
+                console.error(e);
+                document.getElementById('status-bar').innerText = window.t('contacts.status.error', "CardDAV Error");
+                // Fallback
+                if (!contacts.length && currentUser) loadCloudContacts();
+                else if (!contacts.length) loadLocalContacts();
+            }
+        }
+
+        function parseVCF(vcfData) {
+            // Simple VCF Parser (Version 3.0 mostly)
+            const cards = [];
+            const lines = vcfData.split('\n');
+            let currentCard = {};
+
+            lines.forEach(line => {
+                line = line.trim();
+                let upperLine = line.toUpperCase();
+
+                if (upperLine.startsWith('BEGIN:VCARD')) {
+                    currentCard = {};
+                } else if (upperLine.startsWith('END:VCARD')) {
+                    if (currentCard.name) {
+                        currentCard.id = 'dav_' + Math.random();
+                        cards.push(currentCard);
+                    }
+                } else if (upperLine.startsWith('FN:')) {
+                    currentCard.name = line.substring(3);
+                } else if (upperLine.startsWith('TITLE:')) {
+                    currentCard.title = line.substring(6);
+                } else if (upperLine.startsWith('TEL')) {
+                    const colonIdx = line.indexOf(':');
+                    if (colonIdx > -1) currentCard.phone = line.substring(colonIdx + 1);
+                } else if (upperLine.startsWith('EMAIL')) {
+                    const colonIdx = line.indexOf(':');
+                    if (colonIdx > -1) currentCard.email = line.substring(colonIdx + 1);
+                } else if (upperLine.startsWith('ORG:')) {
+                    currentCard.org = line.substring(4);
+                } else if (upperLine.startsWith('ADR')) {
+                    const colonIdx = line.indexOf(':');
+                    // VCard address format: ;;Street;City;Region;Zip;Country
+                    // We'll just dump it raw or simple replace semicolons
+                    if (colonIdx > -1) currentCard.address = line.substring(colonIdx + 1).replace(/;/g, ' ').trim();
+                } else if (upperLine.startsWith('URL')) {
+                    const colonIdx = line.indexOf(':');
+                    if (colonIdx > -1) currentCard.website = line.substring(colonIdx + 1);
+                } else if (upperLine.startsWith('BDAY:')) {
+                    currentCard.birthday = line.substring(5);
+                } else if (upperLine.startsWith('NOTE:')) {
+                    currentCard.note = line.substring(5).replace(/\\n/g, '\n');
+                }
+            });
+            return cards;
+        }
+
+        // --- EDIT / MODAL LOGIC ---
+        function openModal() {
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.querySelector('#modal-overlay h3').innerText = window.t('contacts.modal.new', "New Contact");
+            editingContactId = null;
+
+            document.getElementById('c-name').value = '';
+            document.getElementById('c-title').value = '';
+            document.getElementById('c-org').value = '';
+            document.getElementById('c-phone').value = '';
+            document.getElementById('c-email').value = '';
+            document.getElementById('c-address').value = '';
+            document.getElementById('c-website').value = '';
+            document.getElementById('c-birthday').value = '';
+            document.getElementById('c-notes').value = '';
+        }
+
+        function editContact() {
+            if (!window.currentSelectedContact) return;
+            const p = window.currentSelectedContact;
+
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.querySelector('#modal-overlay h3').innerText = "Edit Contact";
+            editingContactId = p.id;
+
+            document.getElementById('c-name').value = p.name || "";
+            document.getElementById('c-title').value = p.title || "";
+            document.getElementById('c-org').value = p.org || "";
+            document.getElementById('c-phone').value = p.phone || "";
+            document.getElementById('c-email').value = p.email || "";
+            document.getElementById('c-address').value = p.address || "";
+            document.getElementById('c-website').value = p.website || "";
+            document.getElementById('c-birthday').value = p.birthday || "";
+            document.getElementById('c-notes').value = p.note || "";
+        }
+
+        function saveNativeContact() {
+            const name = document.getElementById('c-name').value;
+            if (!name) return;
+
+            const newC = {
+                name: name,
+                title: document.getElementById('c-title').value,
+                org: document.getElementById('c-org').value,
+                phone: document.getElementById('c-phone').value,
+                email: document.getElementById('c-email').value,
+                address: document.getElementById('c-address').value,
+                website: document.getElementById('c-website').value,
+                birthday: document.getElementById('c-birthday').value,
+                note: document.getElementById('c-notes').value
+            };
+
+            if (editingContactId) {
+                // UPDATE EXISTING
+                if (currentUser) {
+                    db.collection('users').doc(currentUser.uid).collection('contacts').doc(editingContactId).set(newC, { merge: true });
+                } else {
+                    const idx = contacts.findIndex(c => c.id === editingContactId);
+                    if (idx !== -1) {
+                        newC.id = editingContactId; // Preserve ID
+                        contacts[idx] = newC;
+                        localStorage.setItem('rekindle_contacts_local', JSON.stringify(contacts));
+                        renderList(contacts);
+                        // Clear details to update view safely
+                        document.getElementById('details-pane').innerHTML = '<div style="text-align:center; margin-top:50px; font-style:italic; color:#666;">Select a contact.</div>';
+                    }
+                }
+            } else {
+                // CREATE NEW
+                if (currentUser) {
+                    db.collection('users').doc(currentUser.uid).collection('contacts').add(newC);
+                } else {
+                    newC.id = Date.now().toString();
+                    contacts.push(newC);
+                    localStorage.setItem('rekindle_contacts_local', JSON.stringify(contacts));
+                    renderList(contacts);
+                }
+            }
+            document.getElementById('modal-overlay').style.display = 'none';
+        }
+
+        // --- DELETE LOGIC ---
+        function deleteContact(id) {
+            contactToDeleteId = id;
+            document.getElementById('delete-confirm-modal').style.display = 'flex';
+        }
+
+        function confirmDelete() {
+            if (!contactToDeleteId) return;
+            const id = contactToDeleteId;
+
+            if (currentUser) {
+                db.collection('users').doc(currentUser.uid).collection('contacts').doc(id).delete();
+                // Firestore listener will reflect change
+            } else {
+                const idx = contacts.findIndex(c => c.id === id);
+                if (idx !== -1) {
+                    contacts.splice(idx, 1);
+                    localStorage.setItem('rekindle_contacts_local', JSON.stringify(contacts));
+                    renderList(contacts);
+                    document.getElementById('details-pane').innerHTML = '<div style="text-align:center; margin-top:50px; font-style:italic; color:#666;">Select a contact.</div>';
+                }
+            }
+            closeDeleteModal();
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-confirm-modal').style.display = 'none';
+            contactToDeleteId = null;
+        }
+
+    </script>
+
+    <script>
+        // Helper to sanitize background image URLs from localStorage
+        function sanitizeBackgroundImage(imageString) {
+            if (!imageString) return '';
+            if (imageString.startsWith('url("data:image/png;base64,')) {
+                return imageString;
+            }
+            if (imageString.startsWith('url("') && imageString.endsWith('")')) {
+                const url = imageString.substring(5, imageString.length - 2);
+                if ((url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) && !url.includes('javascript:')) {
+                    return imageString;
+                }
+            }
+            return '';
+        }
+
+
+
+        function toggleFullScreen() {
+            document.querySelector('.window').classList.toggle('fullscreen');
+        }
+
+
+    </script>
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675"
+        data-utcoffset="11"></script>
+
+
+</body>
+
+</html>

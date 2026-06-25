@@ -1,0 +1,9 @@
+.DS_Store
+/_deploy/
+/node_modules/
+/firebase-functions/node_modules/
+/workers/rekindle-reader/node_modules/
+/.wrangler/
+service-account.json
+service-account-social.json
+.env

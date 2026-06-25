@@ -1,0 +1,8 @@
+name = "rekindle-translate"
+main = "worker.js"
+compatibility_date = "2024-12-05"
+
+[vars]
+# Set via Wrangler secrets (never commit real values):
+# npx wrangler secret put SOCIAL_SERVICE_ACCOUNT_JSON
+# npx wrangler secret put FIREBASE_PROJECT_ID

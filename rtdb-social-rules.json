@@ -1,0 +1,79 @@
+{
+    "rules": {
+        "kindlechat": {
+            "presence": {
+                ".read": false,
+                ".write": false
+            },
+            "server_rate_limits": {
+                "$uid": {
+                    ".read": "auth.uid === $uid || auth.token.email === 'ukiyo@rekindle.ink'",
+                    ".write": "auth.token.email.matches(/^.*@rekindle-socials\\.iam\\.gserviceaccount\\.com$/) || auth.token.email === 'ukiyo@rekindle.ink'"
+                }
+            },
+            "user_recent": {
+                "$uid": {
+                    ".read": "auth.uid === $uid || auth.token.email === 'ukiyo@rekindle.ink'",
+                    ".write": "auth.token.email.matches(/^.*@rekindle-socials\\.iam\\.gserviceaccount\\.com$/) || auth.token.email === 'ukiyo@rekindle.ink'"
+                }
+            },
+            "translations_by_lang": {
+                "$lang": {
+                    ".read": "auth != null && (auth.token.ageVerified == true || auth.token.email === 'ukiyo@rekindle.ink')",
+                    "$msgId": {
+                        ".write": "auth.token.email === 'ukiyo@rekindle.ink' || auth.token.email.matches(/^.*@rekindle-socials\\.iam\\.gserviceaccount\\.com$/) || (auth != null && auth.token.ageVerified == true && root.child('kindlechat/messages/' + $msgId + '/uid').val() === auth.uid)",
+                        ".validate": "newData.isString() && newData.val().length <= 2000"
+                    }
+                }
+            },
+            "messages": {
+                ".read": "auth != null && (auth.token.ageVerified == true || auth.token.email === 'ukiyo@rekindle.ink')",
+                ".write": "auth.token.email === 'ukiyo@rekindle.ink'",
+                ".indexOn": [
+                    "timestamp"
+                ],
+                "$messageId": {
+                    ".write": "auth.token.email === 'ukiyo@rekindle.ink' || auth.token.email.matches(/^.*@rekindle-socials\\.iam\\.gserviceaccount\\.com$/) || (auth != null && !newData.exists() && auth.token.moderator === true && data.child('uid').val() !== auth.uid) || (auth != null && data.exists() && newData.exists() && newData.child('text').val() === data.child('text').val() && newData.child('timestamp').val() === data.child('timestamp').val() && newData.child('uid').val() === data.child('uid').val())",
+                    ".validate": "(newData.hasChildren(['uid', 'text', 'timestamp']) && !newData.hasChild('isPro') && (newData.child('uid').val() === auth.uid || auth.token.email.matches(/^.*@rekindle-socials\\.iam\\.gserviceaccount\\.com$/))) || auth.token.email === 'ukiyo@rekindle.ink' || (data.exists() && newData.child('text').val() === data.child('text').val() && newData.child('timestamp').val() === data.child('timestamp').val() && newData.child('uid').val() === data.child('uid').val() && !newData.hasChild('isPro'))",
+                    "translation": {
+                        ".write": "auth.token.email === 'ukiyo@rekindle.ink' || auth.token.email.matches(/^.*@rekindle-socials\\.iam\\.gserviceaccount\\.com$/) || (auth != null && auth.token.ageVerified == true && root.child('kindlechat/messages/' + $messageId + '/uid').val() === auth.uid)"
+                    },
+                    "reactions": {
+                        "$uid": {
+                            ".write": "auth.uid === $uid && (auth.token.ageVerified == true || auth.token.email === 'ukiyo@rekindle.ink')",
+                            ".validate": "newData.hasChildren(['reaction', 'username'])"
+                        }
+                    }
+                }
+            }
+        },
+        "reports": {
+            ".read": "auth.token.email === 'ukiyo@rekindle.ink' || auth.token.moderator === true",
+            ".write": "auth.token.email === 'ukiyo@rekindle.ink' || auth.token.email.matches(/^.*@rekindle-socials\\.iam\\.gserviceaccount\\.com$/)",
+            ".indexOn": ["contentId", "contentType", "status", "createdAt"]
+        },
+        "users_public": {
+            ".read": "auth != null && (auth.token.ageVerified == true || auth.token.email === 'ukiyo@rekindle.ink')",
+            ".indexOn": ["lastActive", "email"],
+            "$userId": {
+                ".write": "auth != null && (auth.uid === $userId || auth.token.email === 'ukiyo@rekindle.ink')",
+                "username": {
+                    ".validate": "auth.token.email === 'ukiyo@rekindle.ink' || (newData.isString() && newData.val().length <= 40 && newData.val().matches(/^[a-zA-Z0-9_.-]+$/) && !newData.val().matches(/.*([uU][kK][iI][yY][oO]|[rR][eE][kK][iI][nN][dD][lL][eE]|[wW][aA][nN][tT][bB][aA][nN]|[rR][oO][oO][tT]|[sS][yY][sS][tT][eE][mM]|[aA][dD][mM][iI][nN]|[mM][oO][dD]|[sS][uU][pP][pP][oO][rR][tT]).*/))"
+                }
+            }
+        },
+        "user_cards": {
+            ".read": "auth != null && (auth.token.ageVerified == true || auth.token.email === 'ukiyo@rekindle.ink')",
+            ".indexOn": ["username"],
+            "$uid": {
+                ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'ukiyo@rekindle.ink')"
+            }
+        },
+        "users_private": {
+            "$userId": {
+                ".read": "auth != null && (auth.uid === $userId || auth.token.email === 'ukiyo@rekindle.ink')",
+                ".write": "auth != null && auth.uid === $userId"
+            }
+        }
+    }
+}

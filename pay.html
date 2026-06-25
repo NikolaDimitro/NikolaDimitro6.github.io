@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+
+    <title>ReKindle+</title>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+        }
+
+        body {
+            font-family: "Geneva", "Verdana", sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #e5e5e5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0 10px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        .window-content {
+            padding: 30px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h2 {
+            margin-top: 0;
+            text-transform: uppercase;
+            border-bottom: 2px solid black;
+            padding-bottom: 10px;
+            width: 100%;
+        }
+
+        .desc {
+            margin: 20px 0;
+            line-height: 1.5;
+        }
+
+        .price-tag {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 10px 0 20px 0;
+        }
+
+        .action-btn {
+            background: black;
+            color: white;
+            border: 2px solid black;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            box-shadow: 4px 4px 0 #ccc;
+        }
+
+        .action-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+            background: white;
+            color: black;
+        }
+
+        .action-btn.disabled {
+            background: #ccc;
+            border-color: #999;
+            cursor: not-allowed;
+            color: #666;
+            pointer-events: none;
+        }
+
+        .auth-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px dashed #ccc;
+            width: 100%;
+        }
+
+        .login-input {
+            padding: 8px;
+            border: 2px solid black;
+            margin: 5px;
+            width: 200px;
+            font-family: inherit;
+        }
+
+        .secondary-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 8px 15px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            margin-top: 10px;
+        }
+
+        .secondary-btn:active {
+            background: black;
+            color: white;
+            box-shadow: none;
+            transform: translate(1px, 1px);
+        }
+
+        #status-msg {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #666;
+            min-height: 1.2em;
+        }
+
+        #status-msg {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #666;
+            min-height: 1.2em;
+        }
+
+        .plan-selector {
+            display: flex;
+            margin-bottom: 20px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .plan-selector>*+* {
+            margin-left: 10px;
+        }
+
+        .plan-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 10px;
+            flex-grow: 1;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 3px 3px 0 #ccc;
+            font-family: inherit;
+            line-height: 1.3;
+        }
+
+        .plan-btn.active {
+            background: black;
+            color: white;
+            box-shadow: none;
+            transform: translate(2px, 2px);
+        }
+    </style>
+    <script src="js/i18n.js"></script>
+    <script src="theme.js?v=18"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="window.location.href='index'" data-i18n="battleship.btn.close">X</div>
+            <span class="title-text" data-i18n="pay.title">ReKindle+</span>
+        </div>
+        <div class="window-content" id="main-content">
+            <!-- REMOVED HEADER AS REQUESTED -->
+
+            <p class="desc" data-i18n-html="pay.desc">
+                Support ReKindle and unlock exclusive apps like <strong>Mail</strong>, <strong>Substack</strong>,
+                <strong>AI</strong>, <strong>Dropbox</strong> & more.
+            </p>
+
+            <!-- PAYMENT SECTION (Hidden for Guests) -->
+            <div id="payment-section" style="display:none; width:100%; flex-direction:column; align-items:center;">
+                <!-- PLAN SELECTOR -->
+                <div class="plan-selector">
+                    <button class="plan-btn active" onclick="setPlan('monthly')"><span
+                            data-i18n="pay.plan.monthly">Monthly</span><br><span
+                            style="font-size:1.4rem">$2</span></button>
+                    <button class="plan-btn" onclick="setPlan('yearly')"><span
+                            data-i18n="pay.plan.yearly">Yearly</span><br><span
+                            style="font-size:1.4rem">$15</span></button>
+                    <button class="plan-btn" onclick="setPlan('lifetime')"><span
+                            data-i18n="pay.plan.lifetime">Lifetime</span><br><span
+                            style="font-size:1.4rem">$30</span></button>
+                </div>
+
+                <div class="price-tag" id="price-display" data-i18n="pay.display.monthly">Monthly Subscription</div>
+
+                <!-- QR CODE AREA -->
+                <div id="qr-container"
+                    style="background:white; padding:10px; border:2px solid black; display:none; margin-bottom:15px;">
+                    <img id="qrcode-img" src="" alt="Payment QR Code" style="width:200px; height:200px; display:block;">
+                </div>
+
+                <!-- FALLBACK LINK -->
+                <div id="fallback-container" style="display:none; text-align:center; margin-bottom:15px;">
+                    <a id="fallback-link" href="#" target="_blank" style="color:black; font-weight:bold;"
+                        data-i18n="pay.link.standard">Pay via
+                        Standard
+                        Link</a>
+                    <div style="font-size:0.75rem; color:#666; margin-top:5px; font-style:italic;"
+                        data-i18n="pay.hint.not_recommended">
+                        Not recommended on eInk devices.
+                    </div>
+                </div>
+            </div>
+
+            <p style="font-size: 0.8rem; margin-top: 15px; color: #666; display:none;" id="guest-hint"
+                data-i18n="pay.hint.guest">
+                Log in to generate a payment link.
+            </p>
+
+            <!-- VERIFICATION SECTION -->
+            <div id="verifying-section" style="display:none; width:100%; text-align:center;">
+                <h2 style="margin-top:0;" data-i18n="pay.status.verifying">Verifying...</h2>
+                <p data-i18n="pay.status.syncing">Syncing your membership status...</p>
+                <div style="font-size:2rem;">⏳</div>
+            </div>
+
+            <!-- SUBSCRIBED SECTION (Shown if user has active subscription) -->
+            <div id="subscribed-section" style="display:none; width:100%; text-align:center;">
+                <h2 style="margin-top:0;" data-i18n="pay.status.active">ReKindle+ Active</h2>
+                <p style="font-size:0.9rem;" data-i18n="pay.status.thanks">Thank you for your support!</p>
+                <p style="font-size:0.8rem; color:#666;" id="pay-expiry-date">Expires: ...</p>
+                <a href="https://billing.stripe.com/p/login/28E6oGdgOf6b7qZ13K6Na00" target="_blank"
+                    class="secondary-btn" style="display:inline-block; margin-top:15px; text-decoration:none;"
+                    data-i18n="pay.btn.manage">
+                    Manage Subscription on Stripe
+                </a>
+            </div>
+
+            <p style="font-size: 0.8rem; margin-top: 15px; color: #666;" id="already-subscribed-hint"
+                data-i18n="pay.hint.already_subscribed">
+                Already subscribed? Ensure you are logged in.
+            </p>
+
+            <div id="auth-container" class="auth-section" style="display:none;">
+                <p>
+                    <strong data-i18n="pay.auth.login_title">Log in to Subscribe</strong><br>
+                    <span style="font-size: 0.9rem; color: #444;" data-i18n="pay.auth.requires_account">ReKindle+ requires a free ReKindle account.</span>
+                </p>
+                <div style="display: flex; justify-content: center; margin-top: 15px;">
+                    <button class="secondary-btn" onclick="window.location.href='index?login=true'" data-i18n="pay.btn.login">Log In</button>
+                    <button class="secondary-btn" style="margin-left: 10px;" onclick="window.location.href='index?login=true'" data-i18n="pay.btn.register">Register</button>
+                </div>
+            </div>
+
+            <div id="logged-in-msg" class="auth-section" style="display:none;">
+                <span data-i18n="pay.auth.logged_in_as" data-i18n-args="{&quot;email&quot;: &quot;...&quot;}"
+                    id="logged-in-text">Logged in
+                    as <span id="user-email" style="font-weight:bold;">...</span></span>
+                <br>
+                <button class="secondary-btn" style="font-size:0.75rem; padding: 4px 8px; margin-top:5px;"
+                    onclick="doLogout()" data-i18n="pay.btn.logout">Log Out</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIG
+        const STRIPE_WORKER_URL = 'https://rekindle-stripe.timjarnott.workers.dev';
+        let currentPlan = 'monthly';
+        const sessionUrlCache = {}; // plan -> url, pre-fetched to survive guest checkout
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY7x7vVmlYUyVZNLuCCmIQYa6PWFVfZqQ",
+            authDomain: "rekindle-dd1fa.firebaseapp.com",
+            projectId: "rekindle-dd1fa",
+            storageBucket: "rekindle-dd1fa.firebasestorage.app",
+            messagingSenderId: "748026882518",
+            appId: "1:748026882518:web:6877dd4329318070c11c77"
+        };
+
+        let auth;
+        let db;
+        let currentUser = null;
+        let unsubscribeProListener = null;
+        let isVerifying = false;
+
+        try {
+            if (typeof firebase !== 'undefined') {
+                firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.firestore();
+
+
+                // Note: Persistence disabled due to IndexedDB hangs on some browsers (Safari)
+
+                // db.enablePersistence({ synchronizeTabs: true }) ...
+
+            } else {
+                console.error("Firebase not loaded");
+                document.getElementById('stripe-btn').innerText = "System Error";
+            }
+        } catch (e) {
+            console.error("Firebase Init Error", e);
+        }
+
+        window.onload = function () {
+            // Apply theme
+            if (window.rekindleApplyTheme) window.rekindleApplyTheme();
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+
+            // CHECK FOR URL PARAMS
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('success') === 'true') {
+                isVerifying = true;
+            }
+
+            // Check if plan is specified (e.g., ?plan=lifetime)
+            const planParam = urlParams.get('plan');
+            if (planParam && ['monthly', 'yearly', 'lifetime'].includes(planParam)) {
+                setPlan(planParam);
+            }
+
+            if (auth) {
+                auth.onAuthStateChanged(user => {
+                    currentUser = user;
+                    updateUI(user);
+                });
+            } else {
+                // Offline fallback - cannot subscribe
+                const hint = document.getElementById('guest-hint');
+                hint.innerText = window.t ? window.t('pay.msg.offline') : "Offline Mode - Cannot Subscribe";
+                hint.style.display = 'block';
+                document.getElementById('payment-section').style.display = 'none';
+            }
+        };
+
+        function updateUI(user) {
+            const qrContainer = document.getElementById('qr-container');
+            // const qrPlaceholder = document.getElementById('qr-placeholder'); // Removed
+            const authContainer = document.getElementById('auth-container');
+            const loggedInMsg = document.getElementById('logged-in-msg');
+            const userEmailSpan = document.getElementById('user-email');
+
+            if (user) {
+                // LOGGED IN
+                authContainer.style.display = 'none';
+                loggedInMsg.style.display = 'block';
+                if (userEmailSpan) userEmailSpan.innerText = user.email;
+                const loggedInText = document.getElementById('logged-in-text');
+                if (loggedInText && window.t) {
+                    var rawText = window.t('pay.auth.logged_in_as') || "Logged in as ${email}";
+                    loggedInText.innerHTML = rawText.replace('${email}', `<span id="user-email" style="font-weight:bold;">${user.email}</span>`);
+                }
+                document.getElementById('already-subscribed-hint').style.display = 'none';
+
+                // Check subscription status
+                // Check subscription status
+                if (isVerifying) {
+                    showVerifyingUI();
+                }
+                checkSubscriptionStatus(user.uid);
+
+            } else {
+                // GUEST
+                authContainer.style.display = 'block';
+                loggedInMsg.style.display = 'none';
+
+                // Clear QR code and link securely
+                const qrImg = document.getElementById('qrcode-img');
+                const fallbackLink = document.getElementById('fallback-link');
+                if (qrImg) qrImg.src = '';
+                if (fallbackLink) fallbackLink.href = '#';
+
+                // Hide Payment Section Completely
+                document.getElementById('payment-section').style.display = 'none';
+                document.getElementById('subscribed-section').style.display = 'none';
+                document.getElementById('guest-hint').style.display = 'block';
+                document.getElementById('already-subscribed-hint').style.display = 'block';
+            }
+        }
+
+        function checkSubscriptionStatus(uid) {
+            // Cleanup previous listener
+            if (unsubscribeProListener) {
+                unsubscribeProListener();
+                unsubscribeProListener = null;
+            }
+
+            unsubscribeProListener = db.collection('users').doc(uid).onSnapshot(doc => {
+                let isPro = false;
+                let expires = 0;
+
+                if (doc.exists) {
+                    const data = doc.data();
+                    const now = Date.now();
+                    if (data.proExpiresAt) {
+                        expires = typeof data.proExpiresAt.toMillis === 'function'
+                            ? data.proExpiresAt.toMillis()
+                            : new Date(data.proExpiresAt).getTime();
+                    }
+                    if (expires > now) isPro = true;
+                }
+
+                if (isPro) {
+                    // Show subscribed section
+                    document.getElementById('payment-section').style.display = 'none';
+                    document.getElementById('subscribed-section').style.display = 'block';
+                    document.getElementById('verifying-section').style.display = 'none';
+                    document.getElementById('guest-hint').style.display = 'none';
+
+                    // Format Date
+                    let subType = 'recurring';
+                    if (doc.exists) {
+                        const data = doc.data();
+                        if (data.subscriptionType) subType = data.subscriptionType;
+                    }
+
+                    if (subType === 'lifetime') {
+                        document.getElementById('pay-expiry-date').innerText = window.t ? window.t('pay.status.lifetime') : "Lifetime Membership";
+                    } else {
+                        const dateStr = new Date(expires).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+                        const key = subType === 'recurring' ? 'pay.status.renews' : 'pay.status.expires';
+                        const fallback = (subType === 'recurring' ? "Renews: " : "Expires: ") + dateStr;
+                        document.getElementById('pay-expiry-date').innerText = window.t ? window.t(key).replace('${date}', dateStr) : fallback;
+                    }
+
+                    // Success achieved, stop verifying
+                    isVerifying = false;
+                } else {
+                    // Not Pro
+                    if (isVerifying) {
+                        // Keep showing verification UI while waiting for update
+                        showVerifyingUI();
+                    } else {
+                        // Show payment section
+                        showPaymentUI();
+                    }
+                }
+            }, error => {
+                console.error("Error listening to subscription:", error);
+                showPaymentUI();
+            });
+        }
+
+        function showVerifyingUI() {
+            document.getElementById('payment-section').style.display = 'none';
+            document.getElementById('subscribed-section').style.display = 'none';
+            document.getElementById('verifying-section').style.display = 'block';
+            document.getElementById('guest-hint').style.display = 'none';
+        }
+
+        async function createCheckoutSession(plan) {
+            const qrImg = document.getElementById('qrcode-img');
+            const qrContainer = document.getElementById('qr-container');
+            const fallbackLink = document.getElementById('fallback-link');
+            const fallbackContainer = document.getElementById('fallback-container');
+
+            // Show loading state
+            qrContainer.style.display = 'block';
+            qrImg.src = '';
+            qrImg.alt = 'Generating link...';
+            fallbackLink.href = '#';
+            fallbackLink.innerText = window.t ? window.t('pay.link.loading') : 'Generating link...';
+            fallbackContainer.style.display = 'block';
+
+            try {
+                const idToken = await currentUser.getIdToken();
+                const base = window.location.href.split('?')[0];
+                const res = await fetch(`${STRIPE_WORKER_URL}/create-checkout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        idToken,
+                        plan,
+                        success_url: `${base}?success=true`,
+                        cancel_url: base
+                    })
+                });
+                const data = await res.json();
+                if (!data.url) throw new Error(data.error || 'No URL returned');
+
+                sessionUrlCache[plan] = data.url;
+
+                // Only update UI if this plan is still selected
+                if (plan !== currentPlan) return;
+
+                qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.url)}`;
+                qrImg.alt = 'Payment QR Code';
+                fallbackLink.href = data.url;
+                fallbackLink.innerText = window.t ? window.t('pay.link.standard') : 'Pay via Standard Link';
+            } catch (err) {
+                console.error('Failed to create checkout session:', err);
+                qrImg.alt = 'Error generating link';
+                fallbackLink.innerText = 'Error — please refresh';
+            }
+        }
+
+        function showPaymentUI() {
+            document.getElementById('payment-section').style.display = 'flex';
+            document.getElementById('subscribed-section').style.display = 'none';
+            document.getElementById('guest-hint').style.display = 'none';
+            createCheckoutSession(currentPlan);
+        }
+
+        function setPlan(plan) {
+            currentPlan = plan;
+
+            // Update Buttons
+            document.querySelectorAll('.plan-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.innerText.toLowerCase().includes(plan)) btn.classList.add('active');
+            });
+
+            // Update Label
+            const labels = {
+                monthly: window.t ? window.t('pay.display.monthly') : "Monthly Subscription",
+                yearly: window.t ? window.t('pay.display.yearly') : "Yearly Subscription",
+                lifetime: window.t ? window.t('pay.display.lifetime') : "One-Time Payment"
+            };
+            document.getElementById('price-display').innerText = labels[plan];
+
+            // Regenerate session if logged in and payment section is visible
+            if (currentUser && document.getElementById('payment-section').style.display !== 'none') {
+                if (sessionUrlCache[plan]) {
+                    // Already have a URL for this plan — just update the UI immediately
+                    const qrImg = document.getElementById('qrcode-img');
+                    const fallbackLink = document.getElementById('fallback-link');
+                    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(sessionUrlCache[plan])}`;
+                    qrImg.alt = 'Payment QR Code';
+                    fallbackLink.href = sessionUrlCache[plan];
+                    fallbackLink.innerText = window.t ? window.t('pay.link.standard') : 'Pay via Standard Link';
+                } else {
+                    createCheckoutSession(plan);
+                }
+            }
+        }
+
+
+        function doLogout() {
+            auth.signOut();
+        }
+    </script>
+
+
+</body>
+
+</html>

@@ -1,0 +1,428 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+
+    function isValidActionUsername(username) {
+      // Username must be a string between 1 and 40 characters
+      // and must only contain alphanumeric characters, periods, underscores, or hyphens.
+      return username is string &&
+             username.size() > 0 &&
+             username.size() <= 40 &&
+             username.matches("^[a-zA-Z0-9_.-]+$") &&
+             (isDeveloper() || (
+               !username.matches(".*[uU][kK][iI][yY][oO].*") &&
+               !username.matches(".*[rR][eE][kK][iI][nN][dD][lL][eE].*") &&
+               !username.matches(".*[wW][aA][nN][tT][bB][aA][nN].*") &&
+               !username.matches(".*[rR][oO][oO][tT].*") &&
+               !username.matches(".*[sS][yY][sS][tT][eE][mM].*") &&
+               !username.matches(".*[aA][dD][mM][iI][nN].*") &&
+               !username.matches(".*[aA][dD][mM][iI][nN][iI][sS][tT][rR][aA][tT][oO][rR].*") &&
+               !username.matches(".*[mM][oO][dD].*") &&
+               !username.matches(".*[mM][oO][dD][eE][rR][aA][tT][oO][rR].*") &&
+               !username.matches(".*[sS][uU][pP][pP][oO][rR][tT].*")
+             ));
+    }
+
+    function isValidText(text) {
+      // A basic check for message content to prevent HTML injection.
+      return text is string &&
+             text.size() > 0 &&
+             text.size() <= 1000 && // Limit message length
+             !text.matches('.*[<>].*'); // Block basic HTML tags
+    }
+
+    // --- Collection Rules ---
+
+    function isDeveloper() {
+      return request.auth != null && (
+        request.auth.uid == 'ukiyo' ||
+        request.auth.token.email == 'ukiyo@rekindle.ink'
+      );
+    }
+
+    // Helper to check if user is Pro
+    function isProUser() {
+      let uid = request.auth.uid;
+      let email = request.auth.token.email;
+      
+      // 1. Check legacy proExpiresAt on user document
+      let userDoc = get(/databases/$(database)/documents/users/$(uid));
+      let hasLegacyPro = userDoc != null && 
+             'proExpiresAt' in userDoc.data && 
+             userDoc.data.proExpiresAt != null &&
+             userDoc.data.proExpiresAt > request.time;
+             
+      // 2. Check /config/supporters document (the new source of truth)
+      // Note: We check by email as it's the most reliable backend identifier.
+      let supportersDoc = get(/databases/$(database)/documents/config/supporters);
+      let isSupporter = supportersDoc != null && 
+                        email != null && 
+                        email in supportersDoc.data && 
+                        supportersDoc.data[email].expiresAt != null &&
+                        supportersDoc.data[email].expiresAt > request.time;
+      
+      return isDeveloper() || hasLegacyPro || isSupporter;
+    }
+
+    // 1. USER PRIVATE DATA (e.g., settings, notes, substack_sid)
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isDeveloper());
+      
+      // Allow create, but strictly BLOCK setting 'isPro', 'proExpiresAt', or 'substack_sid' during creation.
+      allow create: if request.auth != null && 
+                       request.auth.uid == userId &&
+                       !request.resource.data.keys().hasAny(['isPro', 'proExpiresAt', 'substack_sid']);
+      
+      // Allow update, but:
+      // - BLOCK modifying 'isPro' or 'proExpiresAt' (unless admin)
+      // - BLOCK modifying 'substack_sid' unless user is Pro
+      allow update: if request.auth != null && (
+                      // Admin can update anything
+                      isDeveloper()
+                      ||
+                      // Regular user update rules
+                      (request.auth.uid == userId && 
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isPro', 'proExpiresAt']) &&
+                       // If changing substack_sid, must be Pro
+                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['substack_sid']) || isProUser())
+                      )
+                    );
+
+      allow delete: if request.auth != null && request.auth.uid == userId;
+
+      // PRO-ONLY SUBCOLLECTION: Contains sensitive data only Pro users can access
+      match /pro_data/{docId} {
+        allow read, write: if request.auth != null && 
+                              request.auth.uid == userId && 
+                              isProUser();
+      }
+
+      // Other known subcollections (general access for authenticated owner)
+      // NOTE: pro_data is handled above with stricter rules
+      match /settings/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /tasks/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /notes/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /quick_notes/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /journal/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // NEWLY ADDED SUBCOLLECTIONS FOR VARIOUS APPS
+      match /library/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /rss_feeds/{docId} {
+        allow read:   if request.auth != null && request.auth.uid == userId;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+        // Free users can update (name/url) but cannot set a custom category
+        allow update: if request.auth != null && request.auth.uid == userId &&
+                         (isProUser() || request.resource.data.category == 'Uncategorized');
+        // Creates: pro users write directly; free users must use the createRssFeed Cloud Function
+        allow create: if request.auth != null && request.auth.uid == userId && isProUser();
+      }
+      match /apps/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /chords/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /contacts/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /cookbook/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /countdown_events/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /events/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /flashcard_decks/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /flashcards/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /flipnote_animations/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /habit_history/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /habits/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /interactive_games/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /mindmaps/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /pixel_drawings/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /privateSettings/ai {
+        allow read, write: if request.auth != null &&
+                              request.auth.uid == userId &&
+                              isProUser();
+      }
+      match /privateSettings/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /reading_list/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /reading_logs/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /food_logs/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /readlater/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /sheet_music_library/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /watchlist/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /chatLimits/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /topic_states/{topicId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // 2. TETRIS LEADERBOARD
+    match /leaderboard_tetris/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      isValidActionUsername(request.resource.data.username) &&
+                      request.resource.data.score is number;
+    }
+
+    // 4. SNAKE LEADERBOARD
+    match /leaderboard_snake/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      isValidActionUsername(request.resource.data.username) &&
+                      request.resource.data.score is number;
+    }
+
+    // 4.1 WORDLE LEADERBOARD
+    match /leaderboard_wordle/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      isValidActionUsername(request.resource.data.username) &&
+                      request.resource.data.score is number &&
+                      request.resource.data.stats is map;
+    }
+
+    // 4.2 SPELLING BEE LEADERBOARD
+    match /leaderboard_spellingbee/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      isValidActionUsername(request.resource.data.username) &&
+                      request.resource.data.score is number &&
+                      request.resource.data.stats is map;
+    }
+
+    // 4.5 DINO LEADERBOARD
+    match /leaderboard_dino_v1/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+      // Allow user to reset their score (delete document)
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 4.6 MAZE LEADERBOARD
+    match /leaderboard_maze/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      isValidActionUsername(request.resource.data.username) &&
+                      request.resource.data.score is number;
+    }
+
+    // 5. WORDS (Multiplayer Game)
+    match /word_games/{gameId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                      (request.resource.data.p1_uid == request.auth.uid ||
+                       request.resource.data.p2_uid == request.auth.uid) &&
+                      isValidActionUsername(request.resource.data.p1_name) &&
+                      (request.resource.data.p2_name == null || isValidActionUsername(request.resource.data.p2_name));
+    }
+
+    // 6. FREEWRITE (Public Signaling for AirType)
+    match /freewrite_sessions/{sessionId} {
+      allow read, write: if true;
+    }
+
+    // 7. HANOI LEADERBOARD
+    match /leaderboard_hanoi_3/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId && isValidActionUsername(request.resource.data.username) && request.resource.data.moves is number;
+    }
+    match /leaderboard_hanoi_4/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId && isValidActionUsername(request.resource.data.username) && request.resource.data.moves is number;
+    }
+    match /leaderboard_hanoi_5/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId && isValidActionUsername(request.resource.data.username) && request.resource.data.moves is number;
+    }
+    match /leaderboard_hanoi_6/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId && isValidActionUsername(request.resource.data.username) && request.resource.data.moves is number;
+    }
+    match /leaderboard_hanoi_7/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId && isValidActionUsername(request.resource.data.username) && request.resource.data.moves is number;
+    }
+
+    // 8. LIGHTS OUT LEADERBOARD
+    match /leaderboard_lightsout_3/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId && isValidActionUsername(request.resource.data.username) && request.resource.data.moves is number;
+    }
+    match /leaderboard_lightsout_4/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId && isValidActionUsername(request.resource.data.username) && request.resource.data.moves is number;
+    }
+    match /leaderboard_lightsout_5/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId && isValidActionUsername(request.resource.data.username) && request.resource.data.moves is number;
+    }
+
+    // 9. TRIVIA LEADERBOARD
+    match /leaderboard_trivia/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      isValidActionUsername(request.resource.data.username) &&
+                      request.resource.data.totalPercent is number &&
+                      request.resource.data.gameCount is number;
+    }
+
+    // 10. SOLITAIRE LEADERBOARD
+    match /leaderboard_solitaire/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      isValidActionUsername(request.resource.data.username) &&
+                      request.resource.data.moves is number;
+    }
+
+    // 10.5 BLOCK BLAST LEADERBOARD
+    match /leaderboard_blockblast/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId 
+                      && request.resource.data.score > resource.data.score;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 10.6 PET LEADERBOARD
+    match /leaderboard_pet_v1/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId 
+                      && request.resource.data.score > resource.data.score;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 10.7 MARIO LEADERBOARD
+    match /leaderboard_mario/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 10.8 YAHTZEE LEADERBOARD
+    match /leaderboard_yahtzee/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId
+                        && isValidActionUsername(request.resource.data.username)
+                        && request.resource.data.score is number;
+      allow update: if request.auth != null && request.auth.uid == userId 
+                        && isValidActionUsername(request.resource.data.username)
+                        && request.resource.data.score is number
+                        && request.resource.data.score > resource.data.score;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 10.9 PERFECT CIRCLE LEADERBOARD
+    match /leaderboard_circle/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      isValidActionUsername(request.resource.data.username) &&
+                      request.resource.data.score is number;
+    }
+
+    // 11. INTERACTIVE BLACKLIST
+    match /interactive_blacklist/{gameId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // 11.5 CONFIG (Supporters)
+    match /config/supporters {
+      allow read: if request.auth != null;
+      allow write: if isDeveloper();
+    }
+
+    // 11.6 CONFIG (Moderators)
+    match /config/moderators {
+      allow read: if request.auth != null;
+      allow write: if isDeveloper();
+    }
+
+    // 12. USER UPLOADS
+    match /interactive_uploads/{uploadId} {
+      allow read: if true;
+      allow create: if request.auth != null &&
+                      request.resource.data.uploaderUid == request.auth.uid &&
+                      isValidText(request.resource.data.title);
+      allow delete: if request.auth != null && resource.data.uploaderUid == request.auth.uid;
+    }
+
+    // 13. SHEET MUSIC UPLOADS
+    match /sheet_music_uploads/{uploadId} {
+      allow read: if true;
+      allow create: if request.auth != null &&
+                      request.resource.data.uploaderUid == request.auth.uid &&
+                      isValidText(request.resource.data.title);
+      allow delete: if request.auth != null && resource.data.uploaderUid == request.auth.uid;
+    }
+
+    // 14. SUGGESTIONS APP (ARCHIVED — migrated to RTDB)
+    match /suggestions/{suggestionId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create, update, delete: if false;
+      }
+    }
+  }
+}

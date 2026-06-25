@@ -1,0 +1,990 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+    
+    <title>Texas Hold'em</title>
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+            --stripe-pattern: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+            --card-width: 50px;
+            --card-height: 70px;
+        }
+
+        body {
+            image-rendering: pixelated;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #e5e5e5;
+            background-repeat: repeat;
+            background-position: top left;
+            background-size: calc(16px * var(--rekindle-scale, 1)) calc(16px * var(--rekindle-scale, 1));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            min-height: 95vh;
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+        }
+
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0 10px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: var(--stripe-pattern);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        .window-content {
+            flex-grow: 1;
+            padding: 10px;
+            background: white;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .poker-table {
+            flex-grow: 1;
+            border: 2px dashed #ccc;
+            border-radius: 40px;
+            position: relative;
+            margin: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .community-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+            min-height: 100px;
+        }
+
+        .community-area > * + * {
+            margin-top: 10px;
+}
+
+        .pot-display {
+            font-family: "Courier New", monospace;
+            font-weight: bold;
+            font-size: 1.2rem;
+            border: 2px solid black;
+            padding: 5px 15px;
+            background: #eee;
+            box-shadow: 2px 2px 0 #aaa;
+        }
+
+        .cards-row {
+            display: flex;
+            justify-content: center;
+            min-height: var(--card-height);
+        }
+
+        .cards-row > * + * {
+            margin-left: 5px;
+}
+
+        .card {
+            width: var(--card-width);
+            height: var(--card-height);
+            border: 2px solid black;
+            border-radius: 4px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2px;
+            box-sizing: border-box;
+            box-shadow: 2px 2px 0 #ccc;
+            font-family: "Courier New", monospace;
+            font-weight: bold;
+            position: relative;
+            font-size: 0.8rem;
+        }
+
+        .card.back {
+            background-image: repeating-linear-gradient(45deg, black 0, black 2px, white 2px, white 4px);
+            background-size: 6px 6px;
+        }
+
+        .suit-red {
+            color: white;
+            -webkit-text-stroke: 1px black;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        .suit-black {
+            color: black;
+        }
+
+        .card-center-suit {
+            font-size: 1.5rem;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .player-seat {
+            position: absolute;
+            width: 120px;
+            height: 100px;
+            border: 2px solid black;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px;
+            box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        .player-seat.active-turn {
+            box-shadow: 0 0 0 3px black;
+        }
+
+        .player-seat.folded {
+            opacity: 0.5;
+        }
+
+        .player-seat.winner {
+            border: 4px double black;
+        }
+
+        .seat-top {
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .seat-left {
+            top: 50%;
+            left: -10px;
+            transform: translateY(-50%);
+        }
+
+        .seat-right {
+            top: 50%;
+            right: -10px;
+            transform: translateY(-50%);
+        }
+
+        .seat-user {
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 140px;
+        }
+
+        .seat-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #aaa;
+            width: 100%;
+            text-align: center;
+        }
+
+        .seat-chips {
+            font-family: "Courier New", monospace;
+            font-size: 0.8rem;
+        }
+
+        .seat-action {
+            font-style: italic;
+            font-size: 0.8rem;
+            min-height: 1.2em;
+        }
+
+        .user-controls {
+            display: none;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: center;
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        .sys-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 5px 10px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .sys-btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0 black;
+        }
+
+        .sys-btn:disabled {
+            opacity: 0.3;
+            cursor: default;
+            box-shadow: none;
+        }
+
+        #game-message {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border: 2px solid black;
+            padding: 10px 20px;
+            z-index: 10;
+            font-weight: bold;
+            box-shadow: 4px 4px 0 black;
+            display: none;
+            text-align: center;
+        }
+    </style>
+    <script src="theme.js?v=18"></script>
+    <script src="js/i18n.js"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="window.location.href='index'">X</div>
+            <span class="title-text" data-i18n="texasholdem.title">Texas Hold'em</span>
+        </div>
+
+        <div class="window-content">
+
+            <div class="poker-table">
+                <!-- Community Cards & Pot -->
+                <div class="community-area">
+                    <div class="pot-display"><span data-i18n="texasholdem.label.pot">Pot: $</span><span id="pot-amount">0</span></div>
+                    <div class="cards-row" id="community-cards"></div>
+                </div>
+
+                <!-- Opponents -->
+                <div class="player-seat seat-top" id="seat-1">
+                    <div class="seat-name" data-i18n="texasholdem.label.bot1">Bot 1</div>
+                    <div class="seat-chips">$1000</div>
+                    <div class="cards-row op-cards">
+                        <div class="card back" style="width:30px; height:42px;"></div>
+                        <div class="card back" style="width:30px; height:42px;"></div>
+                    </div>
+                    <div class="seat-action"></div>
+                </div>
+
+                <div class="player-seat seat-left" id="seat-2">
+                    <div class="seat-name" data-i18n="texasholdem.label.bot2">Bot 2</div>
+                    <div class="seat-chips">$1000</div>
+                    <div class="cards-row op-cards">
+                        <div class="card back" style="width:30px; height:42px;"></div>
+                        <div class="card back" style="width:30px; height:42px;"></div>
+                    </div>
+                    <div class="seat-action"></div>
+                </div>
+
+                <div class="player-seat seat-right" id="seat-3">
+                    <div class="seat-name" data-i18n="texasholdem.label.bot3">Bot 3</div>
+                    <div class="seat-chips">$1000</div>
+                    <div class="cards-row op-cards">
+                        <div class="card back" style="width:30px; height:42px;"></div>
+                        <div class="card back" style="width:30px; height:42px;"></div>
+                    </div>
+                    <div class="seat-action"></div>
+                </div>
+
+                <!-- User -->
+                <div class="player-seat seat-user" id="seat-0">
+                    <div class="seat-name"><span data-i18n="texasholdem.label.user">You</span> <span id="dealer-btn" style="display:none; color:red;">(D)</span></div>
+                    <div class="seat-chips" id="user-chips" data-i18n="texasholdem.label.bank">Bank: $1000</div>
+                    <div class="cards-row" id="user-cards"></div>
+                    <div class="seat-action" id="user-action-text"></div>
+
+                    <div class="user-controls" id="user-controls">
+                        <button class="sys-btn" onclick="game.playerAction('fold')" data-i18n="texasholdem.btn.fold">Fold</button>
+                        <button class="sys-btn" onclick="game.playerAction('check')" id="btn-check" data-i18n="texasholdem.btn.check">Check</button>
+                        <button class="sys-btn" onclick="game.playerAction('call')" id="btn-call" data-i18n="texasholdem.btn.call">Call</button>
+                        <button class="sys-btn" onclick="game.playerAction('raise')" id="btn-raise" data-i18n="texasholdem.btn.raise">Raise</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <div id="game-message"></div>
+            <button class="sys-btn" id="start-btn" onclick="game.startRound()" style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); width:200px; height:40px; font-size:1.2rem; z-index:20;" data-i18n="texasholdem.btn.start">Start
+                Game</button>
+
+        </div>
+    </div>
+
+    <script>
+        // --- THEME & WALLPAPER ---
+        window.onload = () => {
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+        };
+
+        // --- CONSTANTS ---
+        const SUITS = ['♠', '♥', '♣', '♦'];
+        const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        const NUM_PLAYERS = 4;
+        const STARTING_CHIPS = 1000;
+        const SMALL_BLIND = 10;
+        const BIG_BLIND = 20;
+
+        // --- UTILITIES ---
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        // --- CARD CLASS ---
+        class Card {
+            constructor(suit, value) {
+                this.suit = suit;
+                this.value = value;
+            }
+
+            get rank() {
+                return VALUES.indexOf(this.value);
+            }
+
+            render(hidden = false) {
+                const div = document.createElement('div');
+                div.className = 'card';
+                if (hidden) {
+                    div.classList.add('back');
+                    return div;
+                }
+                const isRed = this.suit === '♥' || this.suit === '♦';
+                const suitClass = isRed ? 'suit-red' : 'suit-black';
+                div.innerHTML = `
+                    <div style="font-size:0.8em; line-height:1;" class="${suitClass}">${this.value}<br>${this.suit}</div>
+                    <div class="card-center-suit ${suitClass}">${this.suit}</div>
+                `;
+                return div;
+            }
+        }
+
+        // --- DECK CLASS ---
+        class Deck {
+            constructor() {
+                this.cards = [];
+                for (const suit of SUITS) {
+                    for (const value of VALUES) {
+                        this.cards.push(new Card(suit, value));
+                    }
+                }
+                this.shuffle();
+            }
+
+            shuffle() {
+                for (let i = this.cards.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
+                }
+            }
+
+            deal() {
+                return this.cards.pop();
+            }
+        }
+
+        // --- PLAYER CLASS ---
+        class Player {
+            constructor(id, name, isHuman = false) {
+                this.id = id;
+                this.name = name;
+                this.isHuman = isHuman;
+                this.chips = STARTING_CHIPS;
+                this.hand = [];
+                this.folded = false;
+                this.currentBet = 0;
+                this.hasActed = false;
+                this.lastAction = '';
+            }
+
+            reset() {
+                this.hand = [];
+                this.folded = false;
+                this.currentBet = 0;
+                this.hasActed = false;
+                this.lastAction = '';
+            }
+
+            bet(amount) {
+                const actualBet = Math.min(amount, this.chips);
+                this.chips -= actualBet;
+                this.currentBet += actualBet;
+                return actualBet;
+            }
+        }
+
+        // --- HAND EVALUATOR ---
+        class HandEvaluator {
+            static evaluate(cards) {
+                if (cards.length < 5) return { score: 0, name: 'Incomplete' };
+
+                const combinations = this.getCombinations(cards, 5);
+                let best = { score: -1, name: '' };
+
+                for (const combo of combinations) {
+                    const result = this.evaluateFive(combo);
+                    if (result.score > best.score) {
+                        best = result;
+                    }
+                }
+                return best;
+            }
+
+            static getCombinations(arr, k) {
+                if (k === 0) return [[]];
+                if (arr.length === 0) return [];
+                const [first, ...rest] = arr;
+                const withFirst = this.getCombinations(rest, k - 1).map(c => [first, ...c]);
+                const withoutFirst = this.getCombinations(rest, k);
+                return [...withFirst, ...withoutFirst];
+            }
+
+            static evaluateFive(cards) {
+                const sorted = [...cards].sort((a, b) => b.rank - a.rank);
+                const ranks = sorted.map(c => c.rank);
+                const suits = sorted.map(c => c.suit);
+
+                const isFlush = suits.every(s => s === suits[0]);
+                const isStraight = this.checkStraight(ranks);
+                const counts = this.getRankCounts(ranks);
+                const countValues = Object.values(counts).sort((a, b) => b - a);
+
+                let score = 0;
+                let name = '';
+
+                // Calculate base score from high cards
+                const baseScore = ranks.reduce((acc, r, i) => acc + r * Math.pow(15, 4 - i), 0);
+
+                if (isFlush && isStraight) {
+                    score = 8000000 + baseScore;
+                    name = ranks[0] === 12 ? (window.t ? window.t('texasholdem.hand.royal_flush') : 'Royal Flush') : (window.t ? window.t('texasholdem.hand.straight_flush') : 'Straight Flush');
+                } else if (countValues[0] === 4) {
+                    const quadRank = parseInt(Object.keys(counts).find(r => counts[r] === 4));
+                    score = 7000000 + quadRank * 15000 + baseScore % 15;
+                    name = window.t ? window.t('texasholdem.hand.four_kind') : 'Four of a Kind';
+                } else if (countValues[0] === 3 && countValues[1] === 2) {
+                    const tripRank = parseInt(Object.keys(counts).find(r => counts[r] === 3));
+                    const pairRank = parseInt(Object.keys(counts).find(r => counts[r] === 2));
+                    score = 6000000 + tripRank * 15 + pairRank;
+                    name = window.t ? window.t('texasholdem.hand.full_house') : 'Full House';
+                } else if (isFlush) {
+                    score = 5000000 + baseScore;
+                    name = window.t ? window.t('texasholdem.hand.flush') : 'Flush';
+                } else if (isStraight) {
+                    score = 4000000 + baseScore;
+                    name = window.t ? window.t('texasholdem.hand.straight') : 'Straight';
+                } else if (countValues[0] === 3) {
+                    const tripRank = parseInt(Object.keys(counts).find(r => counts[r] === 3));
+                    score = 3000000 + tripRank * 15000 + baseScore % 225;
+                    name = window.t ? window.t('texasholdem.hand.three_kind') : 'Three of a Kind';
+                } else if (countValues[0] === 2 && countValues[1] === 2) {
+                    const pairs = Object.keys(counts).filter(r => counts[r] === 2).map(Number).sort((a, b) => b - a);
+                    score = 2000000 + pairs[0] * 15000 + pairs[1] * 15 + baseScore % 15;
+                    name = window.t ? window.t('texasholdem.hand.two_pair') : 'Two Pair';
+                } else if (countValues[0] === 2) {
+                    const pairRank = parseInt(Object.keys(counts).find(r => counts[r] === 2));
+                    score = 1000000 + pairRank * 15000 + baseScore % 3375;
+                    name = window.t ? window.t('texasholdem.hand.pair') : 'Pair';
+                } else {
+                    score = baseScore;
+                    name = window.t ? window.t('texasholdem.hand.high_card') : 'High Card';
+                }
+
+                return { score, name };
+            }
+
+            static checkStraight(ranks) {
+                // Normal straight
+                for (let i = 0; i < 4; i++) {
+                    if (ranks[i] - ranks[i + 1] !== 1) {
+                        // Check wheel (A-2-3-4-5)
+                        if (ranks[0] === 12 && ranks[1] === 3 && ranks[2] === 2 && ranks[3] === 1 && ranks[4] === 0) {
+                            return true;
+                        }
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            static getRankCounts(ranks) {
+                const counts = {};
+                for (const r of ranks) {
+                    counts[r] = (counts[r] || 0) + 1;
+                }
+                return counts;
+            }
+        }
+
+        // --- GAME ENGINE ---
+        class TexasHoldEm {
+            constructor() {
+                this.players = [
+                    new Player(0, window.t ? window.t('texasholdem.label.you') : 'You', true),
+                    new Player(1, window.t ? window.t('texasholdem.label.bot1') : 'Bot 1'),
+                    new Player(2, window.t ? window.t('texasholdem.label.bot2') : 'Bot 2'),
+                    new Player(3, window.t ? window.t('texasholdem.label.bot3') : 'Bot 3')
+                ];
+                this.deck = null;
+                this.communityCards = [];
+                this.pot = 0;
+                this.dealerIndex = 0;
+                this.currentBet = 0;
+                this.currentPlayerIndex = 0;
+                this.stage = 'idle'; // idle, preflop, flop, turn, river, showdown
+                this.waitingForPlayer = false;
+            }
+
+            async startRound() {
+                document.getElementById('start-btn').style.display = 'none';
+                document.getElementById('game-message').style.display = 'none';
+
+                // Reset state
+                this.deck = new Deck();
+                this.communityCards = [];
+                this.pot = 0;
+                this.currentBet = 0;
+                this.stage = 'preflop';
+
+                // Rotate dealer
+                this.dealerIndex = (this.dealerIndex + 1) % NUM_PLAYERS;
+
+                // Reset players
+                for (const player of this.players) {
+                    player.reset();
+                }
+
+                // Post blinds
+                const sbIndex = (this.dealerIndex + 1) % NUM_PLAYERS;
+                const bbIndex = (this.dealerIndex + 2) % NUM_PLAYERS;
+
+                this.pot += this.players[sbIndex].bet(SMALL_BLIND);
+                this.players[sbIndex].lastAction = window.t ? window.t('texasholdem.msg.sb') : 'SB';
+
+                this.pot += this.players[bbIndex].bet(BIG_BLIND);
+                this.players[bbIndex].lastAction = window.t ? window.t('texasholdem.msg.bb') : 'BB';
+
+                this.currentBet = BIG_BLIND;
+
+                // Deal hole cards
+                for (let i = 0; i < 2; i++) {
+                    for (const player of this.players) {
+                        player.hand.push(this.deck.deal());
+                    }
+                }
+
+                this.updateUI();
+
+                // Start betting from UTG (after BB)
+                this.currentPlayerIndex = (bbIndex + 1) % NUM_PLAYERS;
+                await this.runBettingRound();
+            }
+
+            async runBettingRound() {
+                // Reset hasActed for new betting round (except for blinds in preflop)
+                if (this.stage !== 'preflop') {
+                    for (const player of this.players) {
+                        player.hasActed = false;
+                        player.currentBet = 0;
+                    }
+                    this.currentBet = 0;
+                    // First to act is after dealer
+                    this.currentPlayerIndex = (this.dealerIndex + 1) % NUM_PLAYERS;
+                }
+
+                while (true) {
+                    // Check if only one player remains
+                    const activePlayers = this.players.filter(p => !p.folded);
+                    if (activePlayers.length === 1) {
+                        this.endRoundEarly(activePlayers[0]);
+                        return;
+                    }
+
+                    // Check if betting round is complete
+                    if (this.isBettingComplete()) {
+                        break;
+                    }
+
+                    const player = this.players[this.currentPlayerIndex];
+
+                    // Skip folded players
+                    if (player.folded) {
+                        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % NUM_PLAYERS;
+                        continue;
+                    }
+
+                    // Skip players with no chips (all-in)
+                    if (player.chips === 0) {
+                        player.hasActed = true;
+                        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % NUM_PLAYERS;
+                        continue;
+                    }
+
+                    this.updateUI();
+
+                    if (player.isHuman) {
+                        this.showPlayerControls();
+                        this.waitingForPlayer = true;
+                        return; // Wait for player action
+                    } else {
+                        await delay(800);
+                        this.executeBotAction(player);
+                    }
+
+                    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % NUM_PLAYERS;
+                }
+
+                // Advance to next stage
+                await this.advanceStage();
+            }
+
+            isBettingComplete() {
+                const activePlayers = this.players.filter(p => !p.folded && p.chips > 0);
+
+                // All active players must have acted
+                const allActed = activePlayers.every(p => p.hasActed);
+                if (!allActed) return false;
+
+                // All active players must have matched the current bet
+                const allMatched = activePlayers.every(p => p.currentBet === this.currentBet);
+                return allMatched;
+            }
+
+            showPlayerControls() {
+                const controls = document.getElementById('user-controls');
+                controls.style.display = 'flex';
+
+                const player = this.players[0];
+                const toCall = this.currentBet - player.currentBet;
+
+                const checkBtn = document.getElementById('btn-check');
+                const callBtn = document.getElementById('btn-call');
+                const raiseBtn = document.getElementById('btn-raise');
+
+                if (toCall === 0) {
+                    checkBtn.style.display = 'inline-block';
+                    callBtn.style.display = 'none';
+                } else {
+                    checkBtn.style.display = 'none';
+                    callBtn.style.display = 'inline-block';
+                    callBtn.innerText = (window.t ? window.t('texasholdem.btn.call_amount') : "Call ${amount}").replace('${amount}', Math.min(toCall, player.chips));
+                    callBtn.removeAttribute('data-i18n');
+                }
+
+                // Disable raise if not enough chips
+                const minRaise = this.currentBet + BIG_BLIND;
+                raiseBtn.disabled = player.chips <= (minRaise - player.currentBet);
+            }
+
+            playerAction(action) {
+                if (!this.waitingForPlayer) return;
+                this.waitingForPlayer = false;
+
+                document.getElementById('user-controls').style.display = 'none';
+
+                const player = this.players[0];
+                this.executeAction(player, action);
+
+                this.currentPlayerIndex = (this.currentPlayerIndex + 1) % NUM_PLAYERS;
+                this.runBettingRound();
+            }
+
+            executeAction(player, action) {
+                player.hasActed = true;
+
+                const toCall = this.currentBet - player.currentBet;
+
+                switch (action) {
+                    case 'fold':
+                        player.folded = true;
+                        player.lastAction = window.t ? window.t('texasholdem.action.fold') : 'Fold';
+                        break;
+
+                    case 'check':
+                        player.lastAction = window.t ? window.t('texasholdem.action.check') : 'Check';
+                        break;
+
+                    case 'call':
+                        const callAmount = Math.min(toCall, player.chips);
+                        this.pot += player.bet(callAmount);
+                        player.lastAction = (window.t ? window.t('texasholdem.action.call') : `Call $${callAmount}`).replace('${amount}', callAmount);
+                        break;
+
+                    case 'raise':
+                        const raiseTotal = this.currentBet + BIG_BLIND;
+                        const raiseAmount = raiseTotal - player.currentBet;
+                        this.pot += player.bet(raiseAmount);
+                        this.currentBet = raiseTotal;
+                        player.lastAction = (window.t ? window.t('texasholdem.action.raise') : `Raise to $${raiseTotal}`).replace('${amount}', raiseTotal);
+                        // Reset hasActed for other players
+                        for (const p of this.players) {
+                            if (p !== player && !p.folded && p.chips > 0) {
+                                p.hasActed = false;
+                            }
+                        }
+                        break;
+                }
+
+                this.updateUI();
+            }
+
+            executeBotAction(bot) {
+                const toCall = this.currentBet - bot.currentBet;
+
+                let action;
+                if (toCall === 0) {
+                    // Can check or bet
+                    action = Math.random() < 0.15 ? 'raise' : 'check';
+                } else {
+                    // Must call, raise, or fold
+                    const rand = Math.random();
+                    if (rand < 0.65) {
+                        action = 'call';
+                    } else if (rand < 0.75) {
+                        action = 'raise';
+                    } else {
+                        action = 'fold';
+                    }
+                }
+
+                // Can't raise without enough chips
+                if (action === 'raise') {
+                    const minRaise = this.currentBet + BIG_BLIND;
+                    if (bot.chips <= (minRaise - bot.currentBet)) {
+                        action = toCall === 0 ? 'check' : 'call';
+                    }
+                }
+
+                this.executeAction(bot, action);
+            }
+
+            async advanceStage() {
+                const stages = ['preflop', 'flop', 'turn', 'river', 'showdown'];
+                const currentIndex = stages.indexOf(this.stage);
+
+                if (currentIndex >= stages.length - 1) {
+                    this.showdown();
+                    return;
+                }
+
+                this.stage = stages[currentIndex + 1];
+
+                // Deal community cards
+                if (this.stage === 'flop') {
+                    this.communityCards.push(this.deck.deal(), this.deck.deal(), this.deck.deal());
+                } else if (this.stage === 'turn' || this.stage === 'river') {
+                    this.communityCards.push(this.deck.deal());
+                }
+
+                this.updateUI();
+
+                if (this.stage === 'showdown') {
+                    this.showdown();
+                    return;
+                }
+
+                // Check if we can still have betting (need 2+ players with chips)
+                const canBet = this.players.filter(p => !p.folded && p.chips > 0).length >= 2;
+                if (!canBet) {
+                    // Run out remaining cards
+                    await delay(600);
+                    await this.advanceStage();
+                    return;
+                }
+
+                await delay(600);
+                await this.runBettingRound();
+            }
+
+            showdown() {
+                const activePlayers = this.players.filter(p => !p.folded);
+
+                let winner = null;
+                let bestScore = -1;
+                let winningHand = '';
+
+                for (const player of activePlayers) {
+                    const allCards = [...player.hand, ...this.communityCards];
+                    const result = HandEvaluator.evaluate(allCards);
+                    player.handResult = result;
+
+                    if (result.score > bestScore) {
+                        bestScore = result.score;
+                        winner = player;
+                        winningHand = result.name;
+                    }
+                }
+
+                winner.chips += this.pot;
+                this.updateUI(true);
+
+                const msg = (window.t ? window.t('texasholdem.msg.win_with') : "{name} wins ${amount} with {hand}!")
+                    .replace('{name}', winner.name)
+                    .replace('${amount}', this.pot)
+                    .replace('{hand}', winningHand);
+
+                document.getElementById('game-message').innerText = msg;
+                document.getElementById('game-message').style.display = 'block';
+                document.getElementById('start-btn').innerText = window.t ? window.t('texasholdem.btn.new_round') : 'New Round';
+                document.getElementById('start-btn').removeAttribute('data-i18n');
+                document.getElementById('start-btn').style.display = 'block';
+            }
+
+            endRoundEarly(winner) {
+                winner.chips += this.pot;
+                this.updateUI();
+
+                const msg = (window.t ? window.t('texasholdem.msg.win') : "{name} wins ${amount}!")
+                    .replace('{name}', winner.name)
+                    .replace('${amount}', this.pot);
+
+                document.getElementById('game-message').innerText = msg;
+                document.getElementById('game-message').style.display = 'block';
+                document.getElementById('start-btn').innerText = window.t ? window.t('texasholdem.btn.new_round') : 'New Round';
+                document.getElementById('start-btn').removeAttribute('data-i18n');
+                document.getElementById('start-btn').style.display = 'block';
+            }
+
+            updateUI(showdown = false) {
+                // Update pot
+                document.getElementById('pot-amount').innerText = this.pot;
+
+                // Update community cards
+                const commContainer = document.getElementById('community-cards');
+                commContainer.innerHTML = '';
+                for (const card of this.communityCards) {
+                    commContainer.appendChild(card.render());
+                }
+
+                // Update each player
+                for (let i = 0; i < NUM_PLAYERS; i++) {
+                    const player = this.players[i];
+                    const seat = document.getElementById(`seat-${i}`);
+
+                    // Update chips
+                    seat.querySelector('.seat-chips').innerText = (window.t ? window.t('texasholdem.label.bank').replace('${amount}', player.chips) : `$${player.chips}`);
+                    seat.querySelector('.seat-chips').removeAttribute('data-i18n');
+
+                    // Update action text
+                    seat.querySelector('.seat-action').innerText = player.lastAction;
+
+                    // Update folded state
+                    seat.classList.toggle('folded', player.folded);
+
+                    // Update active turn highlight
+                    seat.classList.toggle('active-turn', !showdown && i === this.currentPlayerIndex && !player.folded);
+
+                    // Update cards
+                    if (player.isHuman) {
+                        const handContainer = document.getElementById('user-cards');
+                        handContainer.innerHTML = '';
+                        for (const card of player.hand) {
+                            handContainer.appendChild(card.render());
+                        }
+                    } else {
+                        const opCards = seat.querySelector('.op-cards');
+                        opCards.innerHTML = '';
+                        if (showdown && !player.folded) {
+                            for (const card of player.hand) {
+                                const cardEl = card.render();
+                                cardEl.style.width = '30px';
+                                cardEl.style.height = '42px';
+                                opCards.appendChild(cardEl);
+                            }
+                        } else {
+                            opCards.innerHTML = `
+                                <div class="card back" style="width:30px; height:42px;"></div>
+                                <div class="card back" style="width:30px; height:42px;"></div>
+                            `;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Initialize game
+        const game = new TexasHoldEm();
+    </script>
+
+
+</body></html>

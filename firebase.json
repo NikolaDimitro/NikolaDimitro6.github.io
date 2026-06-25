@@ -1,0 +1,14 @@
+{
+    "firestore": {
+        "rules": "firestore.rules"
+    },
+    "storage": {
+        "rules": "storage.rules"
+    },
+    "database": {
+        "rules": "rtdb-rules.json"
+    },
+    "functions": {
+        "source": "firebase-functions"
+    }
+}

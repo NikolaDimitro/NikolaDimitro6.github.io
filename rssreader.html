@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+
+    <title>RSS Reader</title>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-functions-compat.js"></script>
+
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+            --stripe-pattern: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+        }
+
+        body {
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -o-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            font-family: "Geneva", "Verdana", sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #e5e5e5;
+            /* Background managed by settings */
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        /* WINDOW FRAME */
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            min-height: 90vh;
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+        }
+
+        .window.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: calc(100vw / var(--rekindle-scale, 1));
+            height: calc(100vh / var(--rekindle-scale, 1));
+            max-width: none;
+            max-height: none;
+            border: none;
+            box-shadow: none;
+            z-index: 2000;
+            transform-origin: top left !important;
+        }
+
+        /* Icon State Toggles */
+        .icon-contract {
+            display: none;
+        }
+
+        .window.fullscreen .icon-expand {
+            display: none;
+        }
+
+        .window.fullscreen .icon-contract {
+            display: inline;
+        }
+
+        .controls {
+            position: absolute;
+            right: 10px;
+            z-index: 1;
+            display: flex;
+        }
+
+        .controls>*+* {
+            margin-left: 10px;
+        }
+
+        .title-controls {
+            position: absolute;
+            right: 10px;
+            z-index: 2;
+            background: white;
+            display: flex;
+            align-items: center;
+        }
+
+        .title-controls>*+* {
+            margin-left: 10px;
+        }
+
+        /* TITLE BAR */
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0 10px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: var(--stripe-pattern);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        /* CLOSE BUTTON */
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid black;
+            background: #eee;
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-right: 1px solid black;
+            background: #eee;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .tab-btn:last-child {
+            border-right: none;
+        }
+
+        .tab-btn.active {
+            background: white;
+            border-bottom: 2px solid white;
+            margin-bottom: -2px;
+            z-index: 10;
+        }
+
+        /* CONTENT AREA */
+        .window-content {
+            flex-grow: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column !important;
+            background: white;
+            position: relative;
+        }
+
+        /* VIEW: HEADLINES */
+        #view-headlines {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 0;
+            display: flex;
+            flex-direction: column !important;
+            min-height: 0;
+        }
+
+        /* FILTER BAR */
+        .filter-bar {
+            display: flex;
+            padding: 8px;
+            border-bottom: 1px solid #ccc;
+            background: #f9f9f9;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .filter-bar>*+* {
+            margin-left: 10px;
+        }
+
+        .filter-btn {
+            background: white;
+            border: 1px solid #999;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-radius: 12px;
+        }
+
+        .filter-btn.active {
+            background: black;
+            color: white;
+            border-color: black;
+            font-weight: bold;
+        }
+
+        .article {
+            padding: 15px;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            flex-direction: row;
+            /* Image on right */
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+
+        .article>*+* {
+            margin-left: 15px;
+        }
+
+        .article:last-child {
+            border-bottom: none;
+        }
+
+        .article:active {
+            background: #f0f0f0;
+        }
+
+        /* Read State Styling */
+        .article.read .article-title {
+            color: #666;
+            font-weight: normal;
+        }
+
+        .article.read .article-snippet {
+            color: #999;
+        }
+
+        .article.read {
+            background: #fafafa;
+        }
+
+        .article-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .article-content>*+* {
+            margin-top: 5px;
+        }
+
+        .article-source {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .article-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: black;
+            text-decoration: none;
+            line-height: 1.3;
+        }
+
+        .article-snippet {
+            font-family: "Georgia", serif;
+            font-size: 0.95rem;
+            color: #333;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .article-meta {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .article-img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border: 2px solid black;
+            flex-shrink: 0;
+            background: #eee;
+        }
+
+        /* LIST FOOTER CONTROLS */
+        .list-footer-controls {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-top: 1px solid #ccc;
+            margin-top: auto;
+            /* Push to bottom of list content */
+            background: #f9f9f9;
+        }
+
+        .list-footer-controls>*+* {
+            margin-top: 10px;
+        }
+
+        .wide-btn {
+            width: 100%;
+            max-width: 300px;
+            padding: 12px;
+            font-size: 0.9rem;
+        }
+
+        /* VIEW: SOURCES (MANAGE) */
+        #view-sources {
+            display: none;
+            flex-direction: column;
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .add-feed-bar {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid black;
+            padding-bottom: 20px;
+        }
+
+        .add-feed-bar>*+* {
+            margin-left: 10px;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            border: 2px solid black;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+
+        .sys-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 4px 10px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-size: 0.8rem;
+        }
+
+        .icon-btn {
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            padding: 0;
+        }
+
+        .icon-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* Invert icon color on active/dark if needed, but 'color: white' handles stroke thanks to currentColor */
+
+        .sys-btn:active {
+            background: black;
+            color: white;
+            box-shadow: none;
+        }
+
+        .sys-btn.small {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            box-shadow: 1px 1px 0 black;
+        }
+
+        .read-toggle-btn {
+            min-width: 100px;
+        }
+
+        .source-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            background: #fafafa;
+        }
+
+        .source-name {
+            font-weight: bold;
+        }
+
+        .source-url {
+            font-size: 0.8rem;
+            color: #666;
+            display: block;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .delete-btn {
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            background: white;
+        }
+
+        .delete-btn:hover {
+            background: #eee;
+        }
+
+        /* STATUS BAR */
+        #status-bar {
+            border-top: 2px solid black;
+            padding: 4px;
+            font-size: 0.75rem;
+            background: #eee;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* LOADING */
+        .loading-msg {
+            text-align: center;
+            padding: 40px;
+            font-style: italic;
+            color: #666;
+        }
+
+
+
+        /* MODAL (IFRAME READER) */
+        #article-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: 10000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .article-view-box {
+            background: white;
+            border: 2px solid black;
+            box-shadow: 8px 8px 0 black;
+            width: 95%;
+            height: 95%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        iframe {
+            flex-grow: 1;
+            border: none;
+            background: white;
+            min-height: 0;
+        }
+
+        /* GENERAL MODAL STYLES */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-box {
+            background: white;
+            border: 2px solid black;
+            padding: 20px;
+            box-shadow: 6px 6px 0 black;
+            max-width: 300px;
+            width: 80%;
+            text-align: center;
+        }
+
+        /* STANDARD MODAL SYSTEM */
+        #generic-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 10002;
+            align-items: center;
+            justify-content: center;
+            font-family: "Geneva", "Verdana", sans-serif;
+        }
+
+        .modal-text {
+            margin-bottom: 20px;
+            font-weight: bold;
+            line-height: 1.4;
+            color: black;
+        }
+
+        .modal-btns {
+            display: flex;
+            justify-content: center;
+        }
+
+        .modal-btns>*+* {
+            margin-left: 10px;
+        }
+
+        .modal-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 6px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-family: inherit;
+        }
+
+        .modal-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* ADD FEED MODAL */
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .input-group input {
+            width: 100%;
+            border: 2px solid black;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        .category-header {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-bottom: 2px solid black;
+            padding-bottom: 5px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .modal-buttons > * + * {
+            margin-left: 10px;
+        }
+
+        .tag-list > * {
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+    <script src="time.js"></script>
+    <script src="theme.js?v=18"></script>
+    <script src="js/i18n.js"></script>
+</head>
+
+<body>
+
+    <div class="window">
+
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="window.location.href='index'">X</div>
+            <span class="title-text" data-i18n="rss.title">RSS Reader</span>
+            <div class="controls">
+                <button class="icon-btn" id="refresh-btn" onclick="resetAndFetch()" title="Refresh">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                        stroke-linecap="square" stroke-linejoin="miter">
+                        <path d="M23 4v6h-6"></path>
+                        <path d="M1 20v-6h6"></path>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+                        <path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                </button>
+                <button class="icon-btn" onclick="toggleFullScreen()" title="Full Screen">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                        stroke-linecap="square" stroke-linejoin="miter">
+                        <path class="icon-expand" d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1"></path>
+                        <path class="icon-contract" d="M21 9H15V3M21 3l-6 6M3 15h6v6M3 21l6-6"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab-btn active" id="tab-headlines" onclick="switchView('headlines')"
+                data-i18n="rss.tab.headlines">Headlines</div>
+            <div class="tab-btn" id="tab-sources" onclick="switchView('sources')" data-i18n="rss.tab.sources">Sources
+            </div>
+        </div>
+
+        <div class="window-content">
+
+            <!-- HEADLINES -->
+            <div id="view-headlines">
+                <div class="filter-bar" id="category-filters">
+                    <button class="filter-btn active" id="filter-all" onclick="setFilter('all')"
+                        data-i18n="rss.filter.all">All</button>
+                    <button class="filter-btn" id="filter-unread" onclick="setFilter('unread')"
+                        data-i18n="rss.filter.unread">Unread</button>
+                    <!-- Categories injected here -->
+                </div>
+                <div id="articles-container">
+                    <div class="loading-msg" data-i18n="rss.msg.welcome">Welcome. Add sources to begin.</div>
+                </div>
+            </div>
+
+            <!-- SOURCES -->
+            <div id="view-sources">
+                <div id="sources-list">
+                    <!-- Injected via JS -->
+                </div>
+
+                <div style="margin-top:20px; border-top:1px solid #ccc; padding-top:20px;">
+                    <strong>Preset Feeds:</strong>
+                    <div class="tag-list" style="display: flex; margin-top: 10px; flex-wrap: wrap;">
+                        <button class="sys-btn"
+                            onclick="addPreset('BBC World', 'http://feeds.bbci.co.uk/news/world/rss.xml')">BBC</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('NPR', 'https://feeds.npr.org/1001/rss.xml')">NPR</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('Reuters', 'https://www.reutersagency.com/feed/')">Reuters</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('AP News', 'https://rsshub.app/apnews/topics/apf-topnews')">AP
+                            News</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('The Guardian', 'https://www.theguardian.com/world/rss')">Guardian</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('NY Times', 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml')">NY
+                            Times</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('Al Jazeera', 'https://www.aljazeera.com/xml/rss/all.xml')">Al
+                            Jazeera</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('ABC News AU', 'https://www.abc.net.au/news/feed/2942460/rss.xml')">ABC
+                            AU</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('TechCrunch', 'https://techcrunch.com/feed/')">Tech</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('HackerNews', 'https://news.ycombinator.com/rss')">HackerNews</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('The Verge', 'https://www.theverge.com/rss/index.xml')">Verge</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('Ars Technica', 'https://feeds.arstechnica.com/arstechnica/index')">Ars</button>
+                        <button class="sys-btn"
+                            onclick="addPreset('Nature', 'https://www.nature.com/nature.rss')">Nature</button>
+                        <button class="sys-btn" onclick="addPreset('XKCD', 'https://xkcd.com/rss.xml')">XKCD</button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div id="add-source-footer" class="list-footer-controls" style="display: none;">
+            <button id="add-source-btn" class="sys-btn wide-btn" onclick="openAddFeedModal()" style="font-weight: bold;">+ Add New Source</button>
+        </div>
+
+        <div id="status-bar">Local Mode</div>
+
+    </div>
+
+    <!-- READER MODAL -->
+    <div id="article-modal">
+        <div class="article-view-box">
+            <div class="title-bar">
+                <div class="title-stripes"></div>
+                <div class="close-box" onclick="closeArticleModal()">X</div>
+                <span class="title-text" data-i18n="rss.modal.reader">Reader</span>
+                <div class="title-controls">
+                    <button class="sys-btn small" onclick="decreaseFontSize()" title="Smaller">A-</button>
+                    <button class="sys-btn small" onclick="increaseFontSize()" title="Larger" style="margin-right: 10px;">A+</button>
+                    <button class="sys-btn small read-toggle-btn" id="read-toggle" style="margin-right: 10px;"
+                        onclick="toggleReadStatusInModal()">Mark Unread</button>
+                    <button class="sys-btn small" onclick="openExternal()" data-i18n="rss.btn.web">Open Ext</button>
+                </div>
+            </div>
+            <iframe id="article-frame" src=""></iframe>
+            <div class="modal-footer"
+                style="border-top: 2px solid black; padding: 8px; display: flex; justify-content: space-between; align-items: center; background: #eee; flex-shrink: 0;">
+                <button class="sys-btn" onclick="prevPage()" id="btn-prev">Previous</button>
+                <span id="page-indicator" style="font-weight: bold; font-family: sans-serif; font-size: 0.9rem;">Page
+                    1</span>
+                <button class="sys-btn" onclick="nextPage()" id="btn-next">Next</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- DELETE CONFIRMATION MODAL -->
+    <div id="delete-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 data-i18n="rss.modal.unsubscribe">Unsubscribe?</h3>
+            <p>Remove this feed from your list?</p>
+            <div class="modal-buttons">
+                <button class="sys-btn" onclick="confirmDelete()" data-i18n="reddit.btn.remove">Remove</button>
+                <button class="sys-btn" onclick="closeModal('delete-modal')"
+                    data-i18n="reddit.btn.cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MARK READ CONFIRMATION MODAL -->
+    <div id="mark-read-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 data-i18n="rss.modal.markread">Mark All Read?</h3>
+            <p>This will mark all currently visible articles as read.</p>
+            <div class="modal-buttons">
+                <button class="sys-btn" onclick="confirmMarkAllRead()">Yes</button>
+                <button class="sys-btn" onclick="closeModal('mark-read-modal')"
+                    data-i18n="reddit.btn.cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT FEED MODAL -->
+    <div id="add-feed-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="add-feed-title">Add Source</h3>
+
+            <div class="input-group">
+                <label>URL</label>
+                <input type="text" id="new-feed-url" placeholder="https://...">
+            </div>
+
+            <div class="input-group">
+                <label>Name</label>
+                <input type="text" id="new-feed-name" placeholder="e.g. My Blog">
+            </div>
+
+            <div id="category-input-group" class="input-group">
+                <label>Category <span style="font-size:0.75rem; font-weight:normal; color:#666;">(Pro)</span></label>
+                <input type="text" id="new-feed-category" placeholder="e.g. Tech, News" list="category-list">
+                <datalist id="category-list">
+                    <!-- Injected via JS -->
+                </datalist>
+            </div>
+
+            <input type="hidden" id="edit-feed-id">
+
+            <div class="modal-buttons">
+                <button class="sys-btn" onclick="saveFeedFromModal()">Save</button>
+                <button class="sys-btn" onclick="closeModal('add-feed-modal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FEED SELECTION MODAL (free users over limit) -->
+    <div id="feed-selection-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-box" style="max-width:420px; width:90%;">
+            <p data-i18n="rss.limit.body">Free accounts support up to 2 RSS feeds. Please select 2 to keep.</p>
+            <div id="feed-selection-list" style="margin:12px 0; max-height:260px; overflow-y:auto; border:2px solid #000; padding:8px;"></div>
+            <p id="feed-selection-count" style="font-weight:bold; margin:8px 0;">0 of 2 selected</p>
+            <div class="modal-buttons">
+                <button class="sys-btn" id="feed-selection-confirm" onclick="confirmFeedSelection()" disabled data-i18n="rss.limit.keep">Keep Selected</button>
+            </div>
+            <p style="font-size:0.75rem; margin-top:12px; color:#666; text-align:center;">
+                <a href="pay.html" style="color:#000;" data-i18n="rss.limit.upgrade">Upgrade to ReKindle+ for unlimited feeds.</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function escapeHtml(text) {
+            if (text == null) return "";
+            return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY7x7vVmlYUyVZNLuCCmIQYa6PWFVfZqQ",
+            authDomain: "rekindle-dd1fa.firebaseapp.com",
+            projectId: "rekindle-dd1fa",
+            storageBucket: "rekindle-dd1fa.firebasestorage.app",
+            messagingSenderId: "748026882518",
+            appId: "1:748026882518:web:6877dd4329318070c11c77"
+        };
+        // --- CONFIGURATION ---
+        function showModal(msg, isConfirm = false, callback = null) {
+            const overlay = document.getElementById('generic-modal-overlay');
+            const messageEl = document.getElementById('modal-message');
+            const btnsEl = document.getElementById('modal-btns');
+            messageEl.textContent = msg;
+            if (isConfirm) {
+                btnsEl.innerHTML = '<button class="modal-btn" id="modal-cancel">Cancel</button><button class="modal-btn" id="modal-ok">OK</button>';
+                document.getElementById('modal-cancel').onclick = () => { overlay.style.display = 'none'; if (callback) callback(false); };
+                document.getElementById('modal-ok').onclick = () => { overlay.style.display = 'none'; if (callback) callback(true); };
+            } else {
+                btnsEl.innerHTML = '<button class="modal-btn" onclick="hideModal()">OK</button>';
+            }
+            overlay.style.display = 'flex';
+        }
+        function hideModal() { document.getElementById('generic-modal-overlay').style.display = 'none'; }
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+
+
+        // Note: Persistence disabled due to IndexedDB hangs on some browsers (Safari)
+
+
+        // db.enablePersistence({ synchronizeTabs: true }) ...
+
+        // --- READABILITY WORKER ---
+        const READER_WORKER_URL = "https://rekindle-reader.timjarnott.workers.dev";
+
+        // --- STATE ---
+        let feeds = []; // { id, name, url }
+        let currentUser = null;
+        let articlesCache = [];
+        let currentArticleUrl = "";
+        let feedToDeleteId = null;
+        let readItems = new Set(); // Store read article URLs
+        let filterMode = 'all'; // 'all' or 'unread'
+        let saveTimer = null;
+        let fetchCount = 10; // Items per source to fetch
+        let readerFontSize = 16; // Default article font size in px
+        let isPro = false;
+        let proCheckDone = false;
+        const FREE_FEED_LIMIT = 2;
+
+        // --- INIT ---
+        window.onload = () => {
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            if (window.rekindleApplyDefaultFullscreen) window.rekindleApplyDefaultFullscreen();
+            loadReadStatus();
+            loadReaderFontSize();
+
+            auth.onAuthStateChanged(async user => {
+                if (user) {
+                    currentUser = user;
+                    document.getElementById('status-bar').innerText = "Synced: " + user.email;
+
+                    // Check pro status before loading feeds so UI state is correct
+                    await checkProStatus(user);
+
+                    loadCloudFeeds();
+                    loadCloudReadStatus();
+
+                    // Sync Global Settings (Location for Timezone)
+                    db.collection('users').doc(user.uid).collection('settings').doc('general').get().then(doc => {
+                        if (doc.exists && doc.data().manualLocation) {
+                            localStorage.setItem('rekindle_location_manual', JSON.stringify(doc.data().manualLocation));
+                            // Refresh UI to update timestamps
+                            renderArticles();
+                        }
+                    });
+                } else {
+                    currentUser = null;
+                    isPro = false;
+                    proCheckDone = true;
+                    document.getElementById('status-bar').innerText = "Guest Mode (Local)";
+                    loadLocalFeeds();
+                }
+            });
+        };
+
+        // --- PRO STATUS ---
+
+        async function checkProStatus(user) {
+            if (!user) {
+                isPro = false;
+                proCheckDone = true;
+                return false;
+            }
+
+            const now = Date.now();
+
+            // 1. Check legacy proExpiresAt on user document
+            try {
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists) {
+                    const data = userDoc.data();
+                    if (data.proExpiresAt) {
+                        const exp = typeof data.proExpiresAt.toMillis === 'function'
+                            ? data.proExpiresAt.toMillis()
+                            : new Date(data.proExpiresAt).getTime();
+                        if (exp > now) {
+                            isPro = true;
+                            proCheckDone = true;
+                            applyProUI();
+                            return true;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Pro check (userDoc) failed:', e);
+            }
+
+            // 2. Check config/supporters by email
+            try {
+                const supportersDoc = await db.collection('config').doc('supporters').get();
+                if (supportersDoc.exists) {
+                    const data = supportersDoc.data();
+                    const email = user.email;
+                    if (email && email in data && data[email] && data[email].expiresAt) {
+                        const exp = typeof data[email].expiresAt.toMillis === 'function'
+                            ? data[email].expiresAt.toMillis()
+                            : new Date(data[email].expiresAt).getTime();
+                        if (exp > now) {
+                            isPro = true;
+                            proCheckDone = true;
+                            applyProUI();
+                            return true;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Pro check (supporters) failed:', e);
+            }
+
+            isPro = false;
+            proCheckDone = true;
+            applyFreeUI();
+            return false;
+        }
+
+        function applyProUI() {
+            const catGroup = document.getElementById('category-input-group');
+            if (catGroup) catGroup.style.display = '';
+            updateAddSourceButton();
+        }
+
+        function applyFreeUI() {
+            const catGroup = document.getElementById('category-input-group');
+            if (catGroup) catGroup.style.display = 'none';
+            updateAddSourceButton();
+        }
+
+        function updateAddSourceButton() {
+            const btn = document.getElementById('add-source-btn');
+            if (!btn) return;
+            if (currentUser && !isPro && feeds.length >= FREE_FEED_LIMIT) {
+                btn.disabled = true;
+                btn.title = t('rss.limit.msg', 'Free accounts support up to 2 RSS feeds. Upgrade to ReKindle+ for unlimited feeds.');
+                btn.textContent = t('rss.limit.btn', '+ Add Source (Pro only)');
+            } else {
+                btn.disabled = false;
+                btn.title = '';
+                btn.textContent = t('rss.btn.addnew', '+ Add New Source');
+            }
+        }
+
+        // Helper to HTML-escape text
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        // Helper to sanitize background image URLs from localStorage
+        function sanitizeBackgroundImage(imageString) {
+            if (!imageString) return '';
+            if (imageString.startsWith('url("data:image/png;base64,')) {
+                return imageString;
+            }
+            if (imageString.startsWith('url("') && imageString.endsWith('")')) {
+                const url = imageString.substring(5, imageString.length - 2);
+                if ((url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) && !url.includes('javascript:')) {
+                    return imageString;
+                }
+            }
+            return '';
+        }
+
+
+        // --- NAVIGATION ---
+        function switchView(viewName) {
+            document.getElementById('view-headlines').style.display = viewName === 'headlines' ? 'flex' : 'none';
+            document.getElementById('view-sources').style.display = viewName === 'sources' ? 'flex' : 'none';
+            document.getElementById('add-source-footer').style.display = viewName === 'sources' ? 'flex' : 'none';
+
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${viewName}`).classList.add('active');
+
+            const refreshBtn = document.getElementById('refresh-btn');
+            if (refreshBtn) {
+                refreshBtn.style.display = viewName === 'headlines' ? 'flex' : 'none';
+            }
+
+            if (viewName === 'headlines') {
+                // Reset fetch count when switching to headlines view for fresh start?
+                // No, user might want to keep reading.
+                if (articlesCache.length === 0) resetAndFetch();
+            }
+        }
+
+        function setFilter(mode) {
+            filterMode = mode;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`filter-${mode}`).classList.add('active');
+            renderArticles();
+        }
+
+        function toggleFullScreen() {
+            document.querySelector('.window').classList.toggle('fullscreen');
+        }
+
+        // --- READ STATUS MGMT ---
+        function loadReadStatus() {
+            try {
+                const stored = JSON.parse(localStorage.getItem('rss_read_items'));
+                if (Array.isArray(stored)) {
+                    readItems = new Set(stored);
+                }
+            } catch (e) {
+                readItems = new Set();
+            }
+        }
+
+        function loadReaderFontSize() {
+            const stored = parseInt(localStorage.getItem('rss_reader_font_size'));
+            if (!isNaN(stored) && stored >= 10 && stored <= 32) {
+                readerFontSize = stored;
+            }
+        }
+
+        function applyReaderFontSize() {
+            const frame = document.getElementById('article-frame');
+            if (frame && frame.contentDocument) {
+                if (frame.contentDocument.documentElement) {
+                    frame.contentDocument.documentElement.style.fontSize = readerFontSize + 'px';
+                }
+                if (frame.contentDocument.body) {
+                    frame.contentDocument.body.style.fontSize = readerFontSize + 'px';
+                }
+            }
+            // Allow the browser to reflow before recalculating pagination
+            requestAnimationFrame(() => requestAnimationFrame(() => updatePaginationUI()));
+        }
+
+        function increaseFontSize() {
+            if (readerFontSize < 32) {
+                readerFontSize += 2;
+                localStorage.setItem('rss_reader_font_size', readerFontSize);
+                applyReaderFontSize();
+            }
+        }
+
+        function decreaseFontSize() {
+            if (readerFontSize > 10) {
+                readerFontSize -= 2;
+                localStorage.setItem('rss_reader_font_size', readerFontSize);
+                applyReaderFontSize();
+            }
+        }
+
+        function saveReadStatus() {
+            const array = Array.from(readItems);
+            localStorage.setItem('rss_read_items', JSON.stringify(array));
+
+            // Simple Cloud Sync for read status
+            if (currentUser) {
+                clearTimeout(saveTimer);
+                saveTimer = setTimeout(() => {
+                    // Store as a single document array to avoid write costs of individual docs
+                    // Limit size to prevent document bloat (keep last 500 read items)
+                    let saveArray = array;
+                    if (saveArray.length > 500) saveArray = saveArray.slice(saveArray.length - 500);
+
+                    db.collection('users').doc(currentUser.uid).collection('settings').doc('rss_read_status').set({
+                        urls: saveArray
+                    }, { merge: true });
+                }, 2000);
+            }
+        }
+
+        function loadCloudReadStatus() {
+            db.collection('users').doc(currentUser.uid).collection('settings').doc('rss_read_status').get().then(doc => {
+                if (doc.exists && doc.data().urls) {
+                    const cloudUrls = doc.data().urls;
+                    // Merge
+                    cloudUrls.forEach(url => readItems.add(url));
+                    saveReadStatus(); // Sync back merged to local
+                    renderArticles(); // Refresh UI
+                }
+            });
+        }
+
+        function markAsRead(url) {
+            if (!url) return;
+            readItems.add(url);
+            saveReadStatus();
+        }
+
+        function markAsUnread(url) {
+            if (!url) return;
+            readItems.delete(url);
+            saveReadStatus();
+        }
+
+        function toggleReadStatusInModal() {
+            if (!currentArticleUrl) return;
+
+            const btn = document.getElementById('read-toggle');
+            if (readItems.has(currentArticleUrl)) {
+                markAsUnread(currentArticleUrl);
+                btn.innerText = "Mark Read";
+            } else {
+                markAsRead(currentArticleUrl);
+                btn.innerText = "Mark Unread";
+            }
+            // Refresh background list
+            renderArticles();
+        }
+
+        function openMarkReadModal() {
+            document.getElementById('mark-read-modal').style.display = 'flex';
+        }
+
+        function confirmMarkAllRead() {
+            articlesCache.forEach(a => readItems.add(a.link));
+            saveReadStatus();
+
+            closeModal('mark-read-modal');
+            renderArticles();
+        }
+
+        // --- FEED DATA MGMT ---
+        function loadLocalFeeds() {
+            feeds = JSON.parse(localStorage.getItem('rss_feeds')) || [];
+            renderSources();
+            if (feeds.length > 0) resetAndFetch();
+        }
+
+        function loadCloudFeeds() {
+            db.collection('users').doc(currentUser.uid).collection('rss_feeds')
+                .onSnapshot(snap => {
+                    feeds = [];
+                    snap.forEach(doc => {
+                        feeds.push({ id: doc.id, ...doc.data() });
+                    });
+                    renderSources();
+                    updateAddSourceButton();
+                    if (feeds.length > 0) {
+                        resetAndFetch();
+                        if (proCheckDone && !isPro && feeds.length > FREE_FEED_LIMIT) {
+                            maybeShowFeedSelectionModal();
+                        }
+                    } else {
+                        document.getElementById('articles-container').innerHTML = '<div class="loading-msg">No feeds subscribed. Go to Sources to add some.</div>';
+                    }
+                });
+        }
+
+        async function saveFeed(name, url, category, id = null) {
+            if (currentUser) {
+                if (id) {
+                    // UPDATE — all users write directly; free users can't set a custom category
+                    const safeCategory = isPro ? (category || 'Uncategorized') : 'Uncategorized';
+                    try {
+                        await db.collection('users').doc(currentUser.uid).collection('rss_feeds').doc(id).set({
+                            name: name,
+                            url: url,
+                            category: safeCategory,
+                            updated: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+                    } catch (e) {
+                        console.error('saveFeed update failed:', e);
+                        showModal('Failed to save feed: ' + (e.message || 'Unknown error'));
+                    }
+                } else {
+                    // CREATE — pro users write directly; free users call Cloud Function
+                    if (isPro) {
+                        try {
+                            await db.collection('users').doc(currentUser.uid).collection('rss_feeds').add({
+                                name: name,
+                                url: url,
+                                category: category || 'Uncategorized',
+                                added: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        } catch (e) {
+                            console.error('saveFeed direct add failed:', e);
+                            showModal('Failed to add feed: ' + (e.message || 'Unknown error'));
+                        }
+                    } else {
+                        // Free user — enforce limit server-side
+                        try {
+                            const createFn = firebase.functions().httpsCallable('createRssFeed');
+                            await createFn({ name, url, category: 'Uncategorized' });
+                            // onSnapshot listener updates feeds[] automatically
+                        } catch (e) {
+                            const code = e.code || '';
+                            if (code === 'functions/resource-exhausted') {
+                                showModal(t('rss.limit.msg', 'Free accounts support up to 2 RSS feeds. Upgrade to ReKindle+ for unlimited feeds.'));
+                            } else if (code === 'functions/already-exists') {
+                                showModal('Already subscribed to this feed.');
+                            } else {
+                                console.error('createRssFeed failed:', e);
+                                showModal('Failed to add feed: ' + (e.message || 'Unknown error'));
+                            }
+                        }
+                    }
+                }
+            } else {
+                // GUEST MODE — localStorage only
+                if (id) {
+                    const idx = feeds.findIndex(f => f.id === id);
+                    if (idx !== -1) {
+                        feeds[idx].name = name;
+                        feeds[idx].url = url;
+                        feeds[idx].category = category || 'Uncategorized';
+                    }
+                } else {
+                    feeds.push({ id: Date.now().toString(), name: name, url: url, category: category || 'Uncategorized' });
+                }
+                localStorage.setItem('rss_feeds', JSON.stringify(feeds));
+                renderSources();
+                resetAndFetch();
+            }
+        }
+
+        function removeFeed(id) {
+            feedToDeleteId = id;
+            document.getElementById('delete-modal').style.display = 'flex';
+        }
+
+        function confirmDelete() {
+            if (!feedToDeleteId) return;
+            const id = feedToDeleteId;
+
+            if (currentUser) {
+                db.collection('users').doc(currentUser.uid).collection('rss_feeds').doc(id).delete();
+            } else {
+                feeds = feeds.filter(f => f.id !== id);
+                localStorage.setItem('rss_feeds', JSON.stringify(feeds));
+                renderSources();
+                resetAndFetch();
+            }
+            closeModal('delete-modal');
+            feedToDeleteId = null;
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        // --- FEED SELECTION MODAL (free users over limit) ---
+
+        let feedSelectionChoices = new Set();
+
+        function maybeShowFeedSelectionModal() {
+            if (isPro || !currentUser || feeds.length <= FREE_FEED_LIMIT) return;
+
+            feedSelectionChoices = new Set();
+            const listEl = document.getElementById('feed-selection-list');
+            listEl.innerHTML = '';
+
+            feeds.forEach(feed => {
+                const item = document.createElement('div');
+                item.style.cssText = 'display:flex; align-items:flex-start; padding:6px 0; border-bottom:1px solid #ccc;';
+                item.innerHTML = `
+                    <input type="checkbox" id="fsel-${escapeHtml(feed.id)}" value="${escapeHtml(feed.id)}"
+                           style="margin-right:8px; margin-top:3px; width:16px; height:16px; cursor:pointer; flex-shrink:0;"
+                           onchange="toggleFeedSelection('${escapeHtml(feed.id)}', this.checked)">
+                    <label for="fsel-${escapeHtml(feed.id)}" style="cursor:pointer; flex:1;">
+                        <strong>${escapeHtml(feed.name)}</strong>
+                        <br><span style="font-size:0.8rem; color:#666;">${escapeHtml(feed.url)}</span>
+                    </label>`;
+                listEl.appendChild(item);
+            });
+
+            updateFeedSelectionUI();
+            document.getElementById('feed-selection-modal').style.display = 'flex';
+        }
+
+        function toggleFeedSelection(id, checked) {
+            if (checked) {
+                feedSelectionChoices.add(id);
+            } else {
+                feedSelectionChoices.delete(id);
+            }
+            updateFeedSelectionUI();
+        }
+
+        function updateFeedSelectionUI() {
+            const count = feedSelectionChoices.size;
+            const atLimit = count === FREE_FEED_LIMIT;
+            document.getElementById('feed-selection-count').textContent = `${count} ${t('rss.limit.of', 'of')} ${FREE_FEED_LIMIT} ${t('rss.limit.selected', 'selected')}`;
+            document.getElementById('feed-selection-confirm').disabled = !atLimit;
+
+            // Disable unchecked boxes once 2 are chosen
+            feeds.forEach(feed => {
+                const cb = document.getElementById(`fsel-${feed.id}`);
+                if (!cb) return;
+                cb.disabled = !cb.checked && atLimit;
+            });
+        }
+
+        async function confirmFeedSelection() {
+            if (feedSelectionChoices.size !== FREE_FEED_LIMIT) return;
+
+            const confirmBtn = document.getElementById('feed-selection-confirm');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = t('rss.limit.saving', 'Saving...');
+
+            const toDelete = feeds.filter(f => !feedSelectionChoices.has(f.id));
+
+            try {
+                const batch = db.batch();
+                toDelete.forEach(feed => {
+                    const ref = db.collection('users').doc(currentUser.uid)
+                                  .collection('rss_feeds').doc(feed.id);
+                    batch.delete(ref);
+                });
+                await batch.commit();
+                document.getElementById('feed-selection-modal').style.display = 'none';
+                // onSnapshot listener will update feeds[] and re-render automatically
+            } catch (e) {
+                console.error('Feed selection batch delete failed:', e);
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = t('rss.limit.keep', 'Keep Selected');
+                showModal('Failed to remove feeds: ' + (e.message || 'Unknown error'));
+            }
+        }
+
+        // --- SOURCES UI ---
+        function renderSources() {
+            const list = document.getElementById('sources-list');
+            list.innerHTML = '';
+
+            if (feeds.length === 0) {
+                list.innerHTML = '<div style="padding:10px; color:#666; font-style:italic;">No subscriptions yet.</div>';
+                return;
+            }
+
+            // Group by Category
+            const grouped = {};
+            feeds.forEach(f => {
+                const cat = f.category || "Uncategorized";
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(f);
+            });
+
+            // Update Datalist for inputs
+            const dl = document.getElementById('category-list');
+            dl.innerHTML = '';
+            Object.keys(grouped).sort().forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                dl.appendChild(opt);
+            });
+
+            // Update Filter Bar
+            const filterBar = document.getElementById('category-filters');
+            if (filterBar) {
+                // Keep first two (All, Unread)
+                const staticBtns = `
+                    <button class="filter-btn ${filterMode === 'all' ? 'active' : ''}" id="filter-all" onclick="setFilter('all')">All</button>
+                    <button class="filter-btn ${filterMode === 'unread' ? 'active' : ''}" id="filter-unread" onclick="setFilter('unread')">Unread</button>
+                `;
+                let dynamicBtns = '';
+                // Category filters are pro-only; hide for free authenticated users
+                if (!currentUser || isPro) {
+                    const cats = Object.keys(grouped).sort();
+                    const hasNamedCategories = cats.some(c => c !== 'Uncategorized');
+                    cats.forEach(cat => {
+                        // Only show "Uncategorized" filter if user has at least one named category
+                        if (cat === 'Uncategorized' && !hasNamedCategories) return;
+                        // Escape single quotes in cat name for the onclick handler
+                        const escapedCat = escapeHtml(cat).replace(/\\/g, '\\\\\\\\').replace(/'/g, "\\'");
+                        const btnId = `filter-${cat.replace(/\s+/g, '-')}`;
+                        dynamicBtns += `<button class="filter-btn ${filterMode === cat ? 'active' : ''}" id="${btnId}" onclick="setFilter('${escapedCat}')">${cat}</button>`;
+                    });
+                }
+                filterBar.innerHTML = staticBtns + dynamicBtns;
+            }
+
+
+            // Render Groups
+            Object.keys(grouped).sort().forEach(cat => {
+                const header = document.createElement('div');
+                header.className = 'category-header';
+                header.innerText = cat;
+                list.appendChild(header);
+
+                grouped[cat].forEach(feed => {
+                    const div = document.createElement('div');
+                    div.className = 'source-item';
+                    div.innerHTML = `
+                        <div>
+                            <div class="source-name">${feed.name}</div>
+                            <div class="source-url">${feed.url}</div>
+                        </div>
+                        <div>
+                             <button class="sys-btn small" onclick="openEditFeedModal('${feed.id}')">Edit</button>
+                             <button class="delete-btn" onclick="removeFeed('${feed.id}')">Remove</button>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+            });
+        }
+
+        function openAddFeedModal() {
+            if (currentUser && !isPro && feeds.length >= FREE_FEED_LIMIT) {
+                showModal(t('rss.limit.msg', 'Free accounts support up to 2 RSS feeds. Upgrade to ReKindle+ for unlimited feeds.'));
+                return;
+            }
+
+            document.getElementById('add-feed-title').innerText = "Add Source";
+            document.getElementById('new-feed-url').value = '';
+            document.getElementById('new-feed-name').value = '';
+            document.getElementById('new-feed-category').value = '';
+            document.getElementById('edit-feed-id').value = '';
+
+            document.getElementById('add-feed-modal').style.display = 'flex';
+            document.getElementById('new-feed-url').focus();
+        }
+
+        function openEditFeedModal(id) {
+            const feed = feeds.find(f => f.id === id);
+            if (!feed) return;
+
+            document.getElementById('add-feed-title').innerText = "Edit Source";
+            document.getElementById('new-feed-url').value = feed.url;
+            document.getElementById('new-feed-name').value = feed.name;
+            document.getElementById('new-feed-category').value = feed.category || "Uncategorized";
+            document.getElementById('edit-feed-id').value = id;
+
+            document.getElementById('add-feed-modal').style.display = 'flex';
+        }
+
+        function saveFeedFromModal() {
+            const url = document.getElementById('new-feed-url').value.trim();
+            const name = document.getElementById('new-feed-name').value.trim() || "New Feed";
+            // Free users always get Uncategorized; category field is hidden anyway
+            const category = isPro
+                ? (document.getElementById('new-feed-category').value.trim() || "Uncategorized")
+                : "Uncategorized";
+            const id = document.getElementById('edit-feed-id').value;
+
+            if (!url) {
+                showModal("URL is required.");
+                return;
+            }
+
+            // Validate URL format
+            try {
+                const parsed = new URL(url);
+                if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+                    showModal("Please enter a valid URL starting with http:// or https://");
+                    return;
+                }
+            } catch (e) {
+                showModal("Please enter a valid URL starting with http:// or https://");
+                return;
+            }
+
+            // Check for duplicates (skip if editing the same feed)
+            const duplicate = feeds.find(f => f.url === url && f.id !== id);
+            if (duplicate) {
+                showModal("Already subscribed to this feed.");
+                return;
+            }
+
+            saveFeed(name, url, category, id || null);
+            closeModal('add-feed-modal');
+        }
+
+        function addPreset(name, url) {
+            if (currentUser && !isPro && feeds.length >= FREE_FEED_LIMIT) {
+                showModal(t('rss.limit.msg', 'Free accounts support up to 2 RSS feeds. Upgrade to ReKindle+ for unlimited feeds.'));
+                return;
+            }
+            const exists = feeds.some(f => f.url === url);
+            if (exists) {
+                showModal("Already subscribed.");
+                return;
+            }
+            saveFeed(name, url, "Uncategorized");
+        }
+
+        // --- FETCHING & RENDERING NEWS ---
+
+        function resetAndFetch() {
+            fetchCount = 10;
+            fetchAllFeeds();
+        }
+
+        async function fetchAllFeeds() {
+            const container = document.getElementById('articles-container');
+            const loadBtn = document.getElementById('load-more-btn');
+
+            if (loadBtn) {
+                loadBtn.disabled = true;
+                loadBtn.innerText = "Loading...";
+            }
+
+            if (feeds.length === 0) {
+                container.innerHTML = '<div class="loading-msg">No feeds subscribed.</div>';
+                return;
+            }
+
+            if (fetchCount === 10 && articlesCache.length === 0) {
+                container.innerHTML = '<div class="loading-msg">Fetching updates...</div>';
+            }
+
+            // Use a temp cache to collect new results
+            let newArticlesCache = [];
+
+            try {
+                // Fetch in parallel
+                const promises = feeds.map(feed => fetchFeed(feed, newArticlesCache));
+                await Promise.all(promises);
+            } catch (e) {
+                console.error("Fetch error", e);
+            }
+
+            // SAFETY CHECK: If load more failed (0 items), don't wipe existing list
+            if (fetchCount > 10 && newArticlesCache.length === 0) {
+                console.warn("Load More failed. Restoring previous state.");
+                fetchCount = Math.max(10, fetchCount - 10); // Revert count
+
+                // Notify user via status bar
+                const statusEl = document.getElementById('status-bar');
+                const oldText = statusEl.innerText;
+                statusEl.innerText = "Unable to load more articles.";
+                setTimeout(() => statusEl.innerText = oldText, 3000);
+
+                // Re-render existing list to reset button state
+                renderArticles();
+                return;
+            }
+
+            // Update cache
+            articlesCache = newArticlesCache;
+
+            // Sort by date desc
+            articlesCache.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+            renderArticles();
+        }
+
+        async function fetchFeed(feed, targetArray) {
+            // Request more items if available by using count parameter
+            // Add cache buster time to avoid stale data if we just increased count
+            const api = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(feed.url) + '&count=' + fetchCount;
+
+            try {
+                const res = await fetch(api);
+                const data = await res.json();
+
+                if (data.status === 'ok') {
+                    // Update Name if generic
+                    if (feed.name === "New Feed" && data.feed.title) {
+                        feed.name = data.feed.title;
+                    }
+
+                    data.items.forEach(item => {
+                        // Image Extraction Logic
+                        let imgUrl = item.thumbnail;
+
+                        // Check enclosure if no thumbnail
+                        if (!imgUrl && item.enclosure && item.enclosure.link) {
+                            if (item.enclosure.type.startsWith('image/') || item.enclosure.link.match(/\.(jpeg|jpg|gif|png)$/)) {
+                                imgUrl = item.enclosure.link;
+                            }
+                        }
+
+                        // Last resort: Parse description for <img src>
+                        if (!imgUrl && (item.description || item.content)) {
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = item.description || item.content;
+                            const foundImg = tempDiv.querySelector('img');
+                            if (foundImg) {
+                                imgUrl = foundImg.src;
+                            }
+                        }
+
+                        // Specialized extraction for XKCD "alt text" (title attribute)
+                        let xkcdTitle = "";
+                        if (feed.url.includes('xkcd.com')) {
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = item.description || item.content;
+                            const foundImg = tempDiv.querySelector('img');
+                            if (foundImg && foundImg.title) {
+                                xkcdTitle = foundImg.title;
+                            }
+                        }
+
+                        targetArray.push({
+                            source: feed.name,
+                            title: item.title,
+                            link: item.link,
+                            pubDate: item.pubDate,
+                            image: imgUrl,
+                            snippet: stripHtml(item.description || item.content || ""),
+                            feedUrl: feed.url,
+                            xkcdTitle: xkcdTitle
+                        });
+                    });
+                }
+            } catch (e) {
+                console.error("Error fetching " + feed.name, e);
+            }
+        }
+
+        function renderArticles() {
+            const container = document.getElementById('articles-container');
+            container.innerHTML = '';
+
+            // Filter articles
+            const filtered = articlesCache.filter(a => {
+                if (filterMode === 'unread') {
+                    return !readItems.has(a.link);
+                }
+                if (filterMode !== 'all') {
+                    // Filter Mode is a Category Name
+                    // Find feeds in this category
+                    const feedUrlsInCategory = feeds.filter(f => (f.category || "Uncategorized") === filterMode).map(f => f.url);
+                    return feedUrlsInCategory.includes(a.feedUrl);
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                if (filterMode === 'unread' && articlesCache.length > 0) {
+                    container.innerHTML = '<div class="loading-msg">All caught up!</div>';
+                } else if (articlesCache.length === 0) {
+                    container.innerHTML = '<div class="loading-msg">No articles found. Check your feed URLs.</div>';
+                } else {
+                    container.innerHTML = '<div class="loading-msg">No articles match filter.</div>';
+                }
+                return;
+            }
+
+            // Display All
+            filtered.forEach(article => {
+                // FORCE UTC PARSING: RSS2JSON returns "YYYY-MM-DD HH:mm:ss"
+                // 1. Replace - with / for Safari compatibility
+                // 2. Append " UTC" to force it to be treated as UTC, not local
+                let dateStrRaw = article.pubDate.replace(/-/g, '/');
+                if (!dateStrRaw.includes('UTC') && !dateStrRaw.includes('GMT') && !dateStrRaw.endsWith('Z')) {
+                    dateStrRaw += ' UTC';
+                }
+                const date = new Date(dateStrRaw);
+
+                // Use Global Timezone
+                const dateStr = window.rekindleFormatTime(date, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+                const isRead = readItems.has(article.link);
+
+                const div = document.createElement('div');
+                div.className = `article ${isRead ? 'read' : ''}`;
+                div.onclick = () => openArticle(article);
+
+                let imgHtml = '';
+                if (article.image) {
+                    imgHtml = `<img src="${article.image}" class="article-img" alt="Thumbnail" onerror="this.style.display='none'">`;
+                }
+
+                div.innerHTML = `
+                    <div class="article-content">
+                        <div class="article-source">${article.source}</div>
+                        <div class="article-title">${article.title}</div>
+                        <div class="article-snippet">${article.snippet}</div>
+                        <div class="article-meta">${dateStr}</div>
+                    </div>
+                    ${imgHtml}
+                `;
+                container.appendChild(div);
+            });
+
+            // FOOTER CONTROLS
+            const footer = document.createElement('div');
+            footer.className = 'list-footer-controls';
+
+            // Container for side-by-side buttons
+            const btnGroup = document.createElement('div');
+            btnGroup.style.display = 'flex';
+            btnGroup.style.gap = '10px';
+            btnGroup.style.width = '100%';
+            btnGroup.style.justifyContent = 'center';
+
+            // Always show Load More button to allow fetching deeper into history
+            const moreBtn = document.createElement('button');
+            moreBtn.className = 'sys-btn wide-btn';
+            moreBtn.id = 'load-more-btn';
+            moreBtn.innerText = `Load More`;
+            moreBtn.style.flex = '1';
+            moreBtn.onclick = loadMore;
+            btnGroup.appendChild(moreBtn);
+
+            if (filtered.length > 0) {
+                const markBtn = document.createElement('button');
+                markBtn.className = 'sys-btn wide-btn';
+                markBtn.innerText = 'Mark All Read';
+                markBtn.style.flex = '1';
+                markBtn.onclick = openMarkReadModal;
+                btnGroup.appendChild(markBtn);
+            }
+
+            footer.appendChild(btnGroup);
+            container.appendChild(footer);
+        }
+
+        function loadMore() {
+            fetchCount += 10;
+            fetchAllFeeds();
+        }
+
+        function stripHtml(html) {
+            let tmp = document.createElement("DIV");
+            tmp.innerHTML = html;
+            let text = tmp.textContent || tmp.innerText || "";
+            return text.length > 200 ? text.substring(0, 200) + "..." : text;
+        }
+
+        // --- MODAL READER ---
+        async function openArticle(articleOrUrl) {
+            let url = typeof articleOrUrl === 'string' ? articleOrUrl : articleOrUrl.link;
+            let article = typeof articleOrUrl === 'object' ? articleOrUrl : null;
+
+            currentArticleUrl = url;
+
+            // Mark as Read
+            markAsRead(url);
+            renderArticles(); // Update UI in background
+
+            const modal = document.getElementById('article-modal');
+            const frame = document.getElementById('article-frame');
+            const btn = document.getElementById('read-toggle');
+
+            if (btn) btn.innerText = "Mark Unread";
+
+            modal.style.display = 'flex';
+
+            // SPECIAL HANDLING FOR XKCD
+            if (article && article.feedUrl && article.feedUrl.includes('xkcd.com')) {
+                frame.removeAttribute('src');
+                frame.srcdoc = `
+                <html>
+                <head>
+                    <style>
+                        html { font-size: ${readerFontSize}px; }
+                        body {
+                            font-family: "Geneva", "Verdana", sans-serif;
+                            text-align: center;
+                            padding: 20px;
+                            background-color: white;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            min-height: 100vh;
+                            margin: 0;
+                        }
+                        img {
+                            max-width: 100%;
+                            height: auto;
+                            border: 2px solid black;
+                            box-shadow: 4px 4px 0 black;
+                            margin-bottom: 20px;
+                        }
+                        .alt-text {
+                            font-size: 1rem;
+                            color: #333;
+                            max-width: 600px;
+                            line-height: 1.4;
+                            border: 1px dashed #999;
+                            padding: 15px;
+                            background: #f9f9f9;
+                        }
+                        .title {
+                            font-weight: bold;
+                            font-size: 1.2rem;
+                            margin-bottom: 20px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="title">${article.title}</div>
+                    <img src="${article.image}">
+                    <div class="alt-text">${article.xkcdTitle || "No title text found."}</div>
+                </body>
+                </html>`;
+                frame.onload = () => applyReaderFontSize();
+                return;
+            }
+
+            frame.srcdoc = `
+            <html>
+            <body style="font-family:sans-serif; text-align:center; padding-top:50px; background-color:transparent;">
+                <h2 data-i18n="rss.modal.loading">Loading...</h2>
+                <p style="color:#666;" data-i18n="rss.modal.cleaning">Cleaning up article for E-ink display...</p>
+            </body>
+            </html>`;
+
+            try {
+                // Fetch from Readability worker
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 20000);
+
+                const res = await fetch(`${READER_WORKER_URL}/?url=${encodeURIComponent(url)}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeout);
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || `HTTP ${res.status}`);
+                }
+
+                const articleData = await res.json();
+
+                // Build clean HTML from Readability output
+                let articleHtml = '';
+                if (articleData.title) articleHtml += `<h1>${articleData.title}</h1>`;
+                if (articleData.byline) articleHtml += `<p style="font-style:italic; color:#555;">${articleData.byline}</p>`;
+                if (articleData.siteName) articleHtml += `<p style="font-size:0.8rem; color:#888;">${articleData.siteName}</p>`;
+                articleHtml += '<hr style="border:1px solid #ccc; margin:15px 0;">';
+                articleHtml += articleData.content || articleData.textContent || '<p>No readable content found.</p>';
+
+                const html = `
+                <html>
+                <head>
+                <style>
+                    *, *::before, *::after {
+                        animation: none !important;
+                        transition: none !important;
+                        box-shadow: none !important;
+                        text-shadow: none !important;
+                    }
+                    html {
+                        height: 100%;
+                        width: 100%;
+                        overflow: hidden;
+                    }
+                    body {
+                        background: transparent !important;
+                        margin: 0;
+                        padding: 0 20px;
+                        height: 100%;
+                        width: 100%;
+                        box-sizing: border-box;
+
+                        font-family: Georgia, serif;
+                        line-height: 1.6;
+
+                        /* Column Layout */
+                        column-width: calc(100vw - 80px); /* Exactly match content box width */
+                        column-gap: 40px;
+                        column-fill: auto;
+
+                        overflow-y: hidden; /* Hide vertical scroll locally */
+                        overflow-x: hidden; /* Disable user scrolling */
+                        scrollbar-width: none; /* Firefox */
+                    }
+                    body::-webkit-scrollbar {
+                        display: none; /* Chrome/Safari */
+                    }
+                    img {
+                        max-width: 100%;
+                        height: auto;
+                        image-rendering: pixelated;
+                        display: block;
+                        margin: 10px auto;
+                    }
+                    img[title*="placeholder" i], img[src*="placeholder" i] {
+                        display: none !important;
+                    }
+                    h1, h2, h3 {
+                        break-inside: avoid; /* Keep headings with their text if possible */
+                    }
+                </style>
+                </head>
+                <body>${articleHtml}</body>
+                </html>`;
+
+                const blob = new Blob([html], { type: 'text/html' });
+                const blobUrl = URL.createObjectURL(blob);
+
+                frame.removeAttribute('srcdoc');
+                frame.src = blobUrl;
+
+                // Init Pagination
+                frame.onload = () => {
+                    currentPage = 1;
+                    updatePaginationUI();
+                    applyReaderFontSize();
+
+                    // Tap Navigation & Link Handling
+                    frame.contentDocument.addEventListener('click', (e) => {
+                        // Handle links
+                        const link = e.target.closest('a');
+                        if (link) {
+                            e.preventDefault();
+                            const href = link.href;
+                            if (href && !href.startsWith('javascript:')) {
+                                parent.window.location.href = 'browser.html?url=' + encodeURIComponent(href);
+                            }
+                            return;
+                        }
+
+                        // Ignore if text is selected
+                        const sel = frame.contentWindow.getSelection();
+                        if (sel && sel.toString().length > 0) return;
+
+                        const width = frame.contentWindow.innerWidth;
+                        if (e.clientX < width / 2) {
+                            prevPage();
+                        } else {
+                            nextPage();
+                        }
+                    });
+                };
+
+            } catch (e) {
+                console.error("Reader Error:", e);
+                let errorMsg = "Could not load article.";
+                if (e.message.includes('time') || e.name === 'AbortError') errorMsg = "Request timed out.";
+
+                frame.removeAttribute('src');
+                frame.srcdoc = `
+                    <html>
+                    <body style="font-family:sans-serif; text-align:center; padding-top:50px;">
+                        <h3>${errorMsg}</h3>
+                        <p style="color:#666;">${e.message}</p>
+                        <div style="margin-top:20px;">
+                            <button onclick="parent.openArticle('${url}')" style="padding:10px; cursor:pointer; background:white; border:2px solid black; font-weight:bold; margin-right:10px;">Try Again</button>
+                            <button onclick="parent.openExternal()" style="padding:10px; cursor:pointer; background:white; border:2px solid black; font-weight:bold;">Open External</button>
+                        </div>
+                    </body>
+                    </html>`;
+            }
+        }
+
+        function closeArticleModal() {
+            const modal = document.getElementById('article-modal');
+            const frame = document.getElementById('article-frame');
+
+            modal.style.display = 'none';
+            frame.removeAttribute('srcdoc');
+            frame.src = '';
+            currentArticleUrl = "";
+        }
+
+        function openExternal() {
+            if (currentArticleUrl) {
+                window.open(currentArticleUrl, '_blank');
+            }
+        }
+
+        // --- PAGINATION LOGIC ---
+        let currentPage = 1;
+        let totalPages = 1;
+
+        function updatePaginationUI() {
+            const frame = document.getElementById('article-frame');
+            if (!frame.contentWindow || !frame.contentWindow.document) return;
+
+            const scroller = frame.contentWindow.document.scrollingElement || frame.contentWindow.document.body;
+
+            const scrollW = scroller.scrollWidth;
+            const clientW = scroller.clientWidth;
+
+            if (clientW === 0) return;
+
+            // Round up
+            totalPages = Math.ceil(scrollW / clientW);
+            if (totalPages < 1) totalPages = 1;
+
+            // Current page calculation
+            const scrollL = scroller.scrollLeft;
+            currentPage = Math.round(scrollL / clientW) + 1;
+
+            const indicator = document.getElementById('page-indicator');
+            if (indicator) indicator.innerText = `Page ${currentPage} of ${totalPages}`;
+
+            const btnPrev = document.getElementById('btn-prev');
+            if (btnPrev) btnPrev.disabled = currentPage <= 1;
+
+            const btnNext = document.getElementById('btn-next');
+            if (btnNext) btnNext.disabled = currentPage >= totalPages;
+        }
+
+        function prevPage() {
+            const frame = document.getElementById('article-frame');
+            if (frame.contentWindow && frame.contentWindow.document) {
+                const scroller = frame.contentWindow.document.scrollingElement || frame.contentWindow.document.body;
+                const clientW = scroller.clientWidth;
+
+                if (currentPage > 1) {
+                    currentPage--;
+                    scroller.scrollTo({ left: (currentPage - 1) * clientW, behavior: 'auto' });
+                    updatePaginationUI();
+                }
+            }
+        }
+
+        function nextPage() {
+            const frame = document.getElementById('article-frame');
+            if (frame.contentWindow && frame.contentWindow.document) {
+                const scroller = frame.contentWindow.document.scrollingElement || frame.contentWindow.document.body;
+                const clientW = scroller.clientWidth;
+
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    scroller.scrollTo({ left: (currentPage - 1) * clientW, behavior: 'auto' });
+                    updatePaginationUI();
+                }
+            }
+        }
+
+        // Keyboard Nav
+        document.addEventListener('keydown', (e) => {
+            if (document.getElementById('article-modal').style.display === 'flex') {
+                if (e.key === 'ArrowLeft') prevPage();
+                if (e.key === 'ArrowRight') nextPage();
+            }
+        });
+    </script>
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675"
+        data-utcoffset="11"></script>
+    <!-- STANDARD MODAL POPUP -->
+    <div id="generic-modal-overlay">
+        <div class="modal-box">
+            <div id="modal-message" class="modal-text"></div>
+            <div id="modal-btns" class="modal-btns"></div>
+        </div>
+    </div>
+
+
+</body>
+
+</html>

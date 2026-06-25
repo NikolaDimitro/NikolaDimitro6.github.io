@@ -1,0 +1,70 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isDeveloper() {
+      return request.auth != null && (
+        request.auth.uid == 'ukiyo' ||
+        request.auth.token.email == 'ukiyo@rekindle.ink'
+      );
+    }
+
+    function isModerator() {
+      return request.auth != null && request.auth.token.moderator == true;
+    }
+
+    function isAgeVerified() {
+      return request.auth != null && (
+        request.auth.token.ageVerified == true ||
+        request.auth.token.email == 'ukiyo@rekindle.ink'
+      );
+    }
+
+    // --- TOPICS ---
+    match /topics/{topicId} {
+      allow read: if request.auth != null && isAgeVerified();
+      // Creates must go through the postTopic Cloud Function (moderation enforced)
+      allow create: if false;
+      allow update: if request.auth != null && isAgeVerified() && (
+        (resource.data.authorId == request.auth.uid) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount', 'lastActive']))
+      );
+      allow delete: if request.auth != null && isAgeVerified() && (resource.data.authorId == request.auth.uid || isModerator() || isDeveloper());
+    }
+
+    match /topics/{topicId}/comments/{commentId} {
+      allow read: if request.auth != null && isAgeVerified();
+      // Creates must go through the postTopicComment Cloud Function (moderation enforced)
+      allow create: if false;
+      allow delete: if request.auth != null && isAgeVerified() && (resource.data.authorId == request.auth.uid || isModerator() || isDeveloper());
+    }
+
+    match /topics/{topicId}/pollVotes/{userId} {
+      allow read: if request.auth != null && isAgeVerified();
+      allow create: if request.auth != null && isAgeVerified() && request.auth.uid == userId;
+      allow update: if request.auth != null && isAgeVerified() && request.auth.uid == userId;
+      allow delete: if request.auth != null && isAgeVerified() && (request.auth.uid == userId || isModerator() || isDeveloper());
+    }
+
+    // --- NEIGHBOURHOOD POSTS ---
+    match /neighbourhood_posts/{postId} {
+      allow read: if request.auth != null && isAgeVerified();
+      // Creates must go through the postNeighbourhoodPost Cloud Function (moderation enforced)
+      allow create: if false;
+      allow update: if request.auth != null && isAgeVerified() && (
+        (resource.data.uid == request.auth.uid) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentCount', 'lastActive']))
+      );
+      allow delete: if request.auth != null && isAgeVerified() && (resource.data.uid == request.auth.uid || isModerator() || isDeveloper());
+    }
+
+    match /neighbourhood_posts/{postId}/comments/{commentId} {
+      allow read: if request.auth != null && isAgeVerified();
+      // Creates must go through the postNeighbourhoodComment Cloud Function (moderation enforced)
+      allow create: if false;
+      allow delete: if request.auth != null && isAgeVerified() && (resource.data.uid == request.auth.uid || isModerator() || isDeveloper());
+    }
+
+  }
+}

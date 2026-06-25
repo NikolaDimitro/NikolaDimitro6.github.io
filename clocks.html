@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+
+    <title>Clock</title>
+
+
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+            --stripe-pattern: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+        }
+
+        body {
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -o-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #e5e5e5;
+            /* Background managed by settings */
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        /* WINDOW FRAME */
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            min-height: 85vh;
+            width: 100%;
+            max-width: 900px;
+            position: relative;
+        }
+
+        /* TITLE BAR */
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0 10px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: var(--stripe-pattern);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        /* CLOSE BUTTON */
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* CONTROLS */
+        .controls {
+            position: absolute;
+            right: 10px;
+            z-index: 1;
+            display: flex;
+        }
+
+        .controls>*+* {
+            margin-left: 10px;
+        }
+
+        .sys-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 4px 10px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-size: 0.8rem;
+        }
+
+        .sys-btn:active {
+            background: black;
+            color: white;
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        /* WINDOW CONTENT */
+        .window-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 0;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* CLOCK LIST */
+        #clock-list {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        /* CLOCK ROW */
+        .clock-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #ccc;
+            position: relative;
+            background: white;
+            min-height: 70px;
+        }
+
+        .clock-row:last-child {
+            border-bottom: none;
+        }
+
+        .clock-row.editing {
+            background: #fafafa;
+            border-bottom: 1px dashed #999;
+        }
+
+        /* LEFT INFO */
+        .clock-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        .time-offset {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+
+        .city-name {
+            font-size: 1.8rem;
+            font-weight: 300;
+            /* Thin font like iOS */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: black;
+        }
+
+        /* RIGHT TIME */
+        .clock-time {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            /* Cleaner than monospace for this style */
+            font-size: 3rem;
+            font-weight: 300;
+            margin-left: 20px;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            display: flex;
+            align-items: baseline;
+        }
+
+        .ampm {
+            font-size: 1.2rem;
+            margin-left: 5px;
+            font-weight: 400;
+        }
+
+        /* EDITING MODE ELEMENTS */
+        .delete-btn {
+            background: black;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin-right: 15px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .edit-loc-btn {
+            background: white;
+            color: black;
+            border: 2px solid black;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-right: 15px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .add-new-row {
+            padding: 20px;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            border-bottom: 1px solid #ccc;
+            background: #f0f0f0;
+        }
+
+        .add-new-row:active {
+            background: black;
+            color: white;
+        }
+
+        #status-bar {
+            border-top: 2px solid black;
+            padding: 4px;
+            font-size: 0.75rem;
+            background: #eee;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* MODAL STYLES */
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            /* Changed to fixed for fullscreen */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-box {
+            background: white;
+            border: 2px solid black;
+            box-shadow: 8px 8px 0 black;
+            padding: 25px;
+            width: 320px;
+            text-align: center;
+            display: none;
+            flex-direction: column;
+        }
+
+        .modal-box.active {
+            display: flex;
+        }
+
+        .modal-box input {
+            width: 100%;
+            padding: 10px;
+            margin: 15px 0 5px 0;
+            border: 2px solid black;
+            font-family: inherit;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        /* SEARCH RESULTS */
+        #search-results {
+            max-height: 180px;
+            overflow-y: auto;
+            border: 2px solid black;
+            border-top: none;
+            text-align: left;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .result-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .result-item:hover {
+            background: #f0f0f0;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-main {
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+
+        .result-sub {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .modal-buttons>*+* {
+            margin-left: 10px;
+        }
+
+
+        .loc-badge {
+            font-size: 0.7rem;
+            margin-left: 10px;
+            border: 1px solid black;
+            padding: 2px 4px;
+            font-weight: bold;
+            font-family: sans-serif;
+            align-self: center;
+            /* Center vertical relative to flex container */
+        }
+
+        /* STANDARD MODAL SYSTEM */
+        #generic-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+            font-family: "Geneva", "Verdana", sans-serif;
+        }
+
+        .modal-box {
+            background: white;
+            border: 2px solid black;
+            padding: 20px;
+            box-shadow: 6px 6px 0 black;
+            max-width: 300px;
+            width: 80%;
+            text-align: center;
+        }
+
+        .modal-text {
+            margin-bottom: 20px;
+            font-weight: bold;
+            line-height: 1.4;
+            color: black;
+        }
+
+        .modal-btns {
+            display: flex;
+            justify-content: center;
+        }
+
+        .modal-btns>*+* {
+            margin-left: 10px;
+        }
+
+        .modal-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 6px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-family: inherit;
+        }
+
+        .modal-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+    </style>
+    <script src="time.js"></script>
+    <script src="theme.js?v=18"></script>
+    <script src="js/i18n.js"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="window.location.href='index'">X</div>
+            <span class="title-text" data-i18n="clocks.title">Clock</span>
+            <div class="controls">
+                <button class="sys-btn" onclick="toggleSeconds()" id="secs-btn" style="display: none;"
+                    data-i18n="clocks.btn.secs">Secs</button>
+                <button class="sys-btn" onclick="toggleEdit()" id="edit-btn" data-i18n="clocks.btn.edit">Edit</button>
+            </div>
+        </div>
+
+        <div class="window-content">
+            <div id="clock-list">
+                <!-- Clocks generated here -->
+            </div>
+        </div>
+        <div id="status-bar">Local Mode</div>
+    </div>
+
+    <!-- MODAL OVERLAY -->
+    <div id="modal-overlay">
+
+        <!-- ADD CITY MODAL -->
+        <div id="add-modal" class="modal-box">
+            <h3 data-i18n="clocks.modal.add.title">Location</h3>
+            <input type="text" id="city-search" data-i18n-placeholder="clocks.modal.add.ph" placeholder="Search city..."
+                autocomplete="off" oninput="handleSearchInput(this.value)">
+            <div id="search-results"></div>
+            <div class="modal-buttons">
+                <button class="sys-btn" onclick="closeModal()" data-i18n="clocks.modal.add.cancel">Cancel</button>
+            </div>
+        </div>
+
+        <!-- DELETE MODAL -->
+        <div id="delete-modal" class="modal-box">
+            <h3 data-i18n="clocks.modal.del.title">Remove Clock?</h3>
+            <p id="delete-msg-text" style="margin: 15px 0;" data-i18n="clocks.modal.del.desc">Are you sure?</p>
+            <div class="modal-buttons">
+                <button class="sys-btn" onclick="confirmDelete()" data-i18n="clocks.modal.del.confirm">Remove</button>
+                <button class="sys-btn" onclick="closeModal()" data-i18n="clocks.modal.del.cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        function obfuscate(str) {
+            if (!str) return str;
+            var key = 'rek';
+            var res = '';
+            for (var i = 0; i < str.length; i++) {
+                res += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+            }
+            return btoa(res);
+        }
+        function deobfuscate(str) {
+            if (!str) return str;
+            try {
+                var key = 'rek';
+                var raw = atob(str);
+                var res = '';
+                for (var i = 0; i < raw.length; i++) {
+                    res += String.fromCharCode(raw.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+                }
+                return res;
+            } catch (e) { return str; }
+        }
+        function setSecureItem(key, value) { localStorage.setItem(key, obfuscate(value)); }
+        function getSecureItem(key) { return deobfuscate(localStorage.getItem(key)); }
+        function showModal(msg, isConfirm = false, callback = null) {
+            const overlay = document.getElementById('generic-modal-overlay');
+            const messageEl = document.getElementById('modal-message');
+            const btnsEl = document.getElementById('modal-btns');
+            messageEl.textContent = msg;
+            if (isConfirm) {
+                btnsEl.innerHTML = '<button class="modal-btn" id="modal-cancel">Cancel</button><button class="modal-btn" id="modal-ok">OK</button>';
+                document.getElementById('modal-cancel').onclick = () => { overlay.style.display = 'none'; if (callback) callback(false); };
+                document.getElementById('modal-ok').onclick = () => { overlay.style.display = 'none'; if (callback) callback(true); };
+            } else {
+                btnsEl.innerHTML = '<button class="modal-btn" onclick="hideModal()">OK</button>';
+            }
+            overlay.style.display = 'flex';
+        }
+        function hideModal() { document.getElementById('generic-modal-overlay').style.display = 'none'; }
+
+        // --- FIREBASE CONFIG ---
+        var firebaseConfig = {
+            apiKey: "AIzaSyDY7x7vVmlYUyVZNLuCCmIQYa6PWFVfZqQ",
+            authDomain: "rekindle-dd1fa.firebaseapp.com",
+            projectId: "rekindle-dd1fa",
+            storageBucket: "rekindle-dd1fa.firebasestorage.app",
+            messagingSenderId: "748026882518",
+            appId: "1:748026882518:web:6877dd4329318070c11c77"
+        };
+
+        var isFirebaseAvailable = false;
+        var auth, db;
+
+
+
+
+
+
+        // Note: Persistence disabled due to IndexedDB hangs on some browsers (Safari)
+
+
+        // db.enablePersistence({ synchronizeTabs: true }) ...
+
+        // --- CONFIGURATION ---
+        var DEFAULT_CITIES = [
+            { name: "New York", zone: "America/New_York" },
+            { name: "London", zone: "Europe/London" },
+            { name: "Tokyo", zone: "Asia/Tokyo" }
+        ];
+
+        var cities = JSON.parse(getSecureItem('rekindle_clocks')) || DEFAULT_CITIES;
+
+        // Default to Local (Auto)
+        var homeCity = { name: "Local", zone: null };
+
+        // Override Home City with Global Manual Location if set in Settings
+        var globalLoc = JSON.parse(getSecureItem('rekindle_location_manual'));
+        if (globalLoc && globalLoc.zone) {
+            homeCity = { name: globalLoc.name, zone: globalLoc.zone };
+        }
+
+        var showSeconds = JSON.parse(getSecureItem('rekindle_clocks_secs') || 'true');
+
+        var isEditing = false;
+        var timer = null;
+        var currentUser = null;
+        var searchTimeout = null;
+        var deleteTargetIndex = -1;
+        var editTarget = null; // 'home' or null
+        var timeOffset = 0; // Difference between Server Time and Local System Time (ms)
+        var domCache = null;
+
+        // Start sync immediately
+        syncWithServer();
+
+        // --- INIT ---
+        document.addEventListener('DOMContentLoaded', function () {
+            // Init Firebase
+            try {
+                if (typeof firebase !== 'undefined') {
+                    firebase.initializeApp(firebaseConfig);
+                    auth = firebase.auth();
+                    db = firebase.firestore();
+                    isFirebaseAvailable = true;
+                }
+            } catch (e) {
+                console.error("Firebase init failed:", e);
+            }
+
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            updateSecondsBtn();
+
+            // IMMEDIATE RENDER FOR PERCEIVED SPEED
+            renderClocks();
+            startTimer();
+
+            if (auth) {
+                auth.onAuthStateChanged(function (user) {
+                    if (user) {
+                        currentUser = user;
+                        document.getElementById('status-bar').innerText = (window.t ? window.t('status.synced', 'Synced: ') : "Synced: ") + user.email;
+                        loadCloudData();
+                    } else {
+                        document.getElementById('status-bar').innerText = (window.t ? window.t('status.guest', 'Guest Mode (Local)') : "Guest Mode (Local)");
+                    }
+                });
+            } else {
+                // Fallback if auth failed
+                document.getElementById('status-bar').innerText = (window.t ? window.t('status.guest', 'Guest Mode (Local)') : "Guest Mode (Local)");
+            }
+        });
+
+
+        // --- DATA SYNC ---
+        function triggerSettingsSyncSignal() {
+            if (!currentUser || !isFirebaseAvailable || !db) return;
+            db.collection('users').doc(currentUser.uid).set({
+                settingsLastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }).catch(err => console.error("Error triggering sync signal:", err));
+        }
+
+        function loadCloudData() {
+            db.collection('users').doc(currentUser.uid).collection('apps').doc('clocks')
+                .get().then(function (doc) {
+                    if (doc.exists) {
+                        var data = doc.data();
+
+                        var newCities = data.cities || cities;
+                        var newHomeCity = { name: "Local", zone: null };
+
+                        // Logic: Prioritize Global Manual Location from Settings.
+                        // If it exists, it overrides the home clock, regardless of what's in the clocks doc.
+                        var cloudHome = data.homeCity || { name: "Local", zone: null };
+                        var globalManual = JSON.parse(getSecureItem('rekindle_location_manual'));
+
+                        if (globalManual && globalManual.zone) {
+                            newHomeCity = { name: globalManual.name, zone: globalManual.zone };
+                        } else {
+                            newHomeCity = cloudHome;
+                        }
+
+                        // Check for changes (JSON stringify is sufficient for simple strict structure)
+                        var citiesChanged = JSON.stringify(cities) !== JSON.stringify(newCities);
+                        var homeChanged = JSON.stringify(homeCity) !== JSON.stringify(newHomeCity);
+
+                        if (citiesChanged || homeChanged) {
+                            cities = newCities;
+                            homeCity = newHomeCity;
+                            setSecureItem('rekindle_clocks', JSON.stringify(cities));
+                            setSecureItem('rekindle_clocks_home', JSON.stringify(homeCity));
+
+                            console.log("Cloud data updated, re-rendering clocks.");
+                            renderClocks();
+                            // No need to restart timer, it's running.
+                        } else {
+                            console.log("Local data matches Cloud, skipping re-render.");
+                        }
+                    }
+                }).catch(function (e) {
+                    console.error("Cloud load error:", e);
+                });
+        }
+
+        function saveData() {
+            setSecureItem('rekindle_clocks', JSON.stringify(cities));
+            setSecureItem('rekindle_clocks_home', JSON.stringify(homeCity));
+
+            if (currentUser) {
+                db.collection('users').doc(currentUser.uid).collection('apps').doc('clocks').set({
+                    cities: cities,
+                    homeCity: homeCity
+                }, { merge: true });
+            }
+        }
+
+
+
+        // --- TIME SYNC ---
+        function syncWithServer() {
+            try {
+                // Fetch current page headers only (HEAD request is fast)
+                fetch(window.location.href, { method: 'HEAD', cache: 'no-cache' })
+                    .then(response => {
+                        const dateHeader = response.headers.get('Date');
+                        if (dateHeader) {
+                            const serverTime = new Date(dateHeader).getTime();
+                            const localTime = Date.now();
+                            timeOffset = serverTime - localTime;
+                            console.log("Time synced! Offset: " + timeOffset + "ms");
+                            updateClocks(); // Immediate update
+                        }
+                    })
+                    .catch(e => console.warn("Time sync failed, using system time.", e));
+            } catch (e) {
+                console.warn("Time sync error:", e);
+            }
+        }
+
+
+
+        // --- CLOCK LOGIC ---
+        function startTimer() {
+            updateClocks();
+            if (timer) clearInterval(timer);
+            timer = setInterval(updateClocks, 1000); // Update every second
+        }
+
+        function updateClocks() {
+            var now = new Date(Date.now() + timeOffset);
+
+            // Build Cache if needed
+            if (!domCache) {
+                domCache = {
+                    localTime: document.getElementById('time-local'),
+                    cities: []
+                };
+                cities.forEach(function (city, index) {
+                    domCache.cities.push({
+                        // Store mostly static references
+                        time: document.getElementById('time-' + index),
+                        offset: document.getElementById('offset-' + index),
+                        zone: city.zone
+                    });
+                });
+            }
+
+            // --- 1. Update Home Clock ---
+            if (domCache.localTime) {
+                var timeData = { hours: now.getHours(), mins: now.getMinutes(), secs: now.getSeconds(), dayDiff: 0 };
+                timeData = getTimeInZone(now, homeCity.zone);
+
+                var hours = timeData.hours;
+                var ampm = hours >= 12 ? 'PM' : 'AM';
+                var displayHours = hours % 12 || 12;
+                var displayMins = String(timeData.mins).padStart(2, '0');
+                var displaySecs = String(timeData.secs).padStart(2, '0');
+
+                var timeStr = displayHours + ':' + displayMins;
+                if (showSeconds) timeStr += ':' + displaySecs;
+
+                domCache.localTime.innerHTML = timeStr + '<span class="ampm">' + ampm + '</span>';
+            }
+
+            // --- 2. Update Cities ---
+            domCache.cities.forEach(function (cityCache) {
+                if (!cityCache.time) return;
+
+                var tData = getTimeInZone(now, cityCache.zone);
+
+                var ampm = tData.hours >= 12 ? 'PM' : 'AM';
+                var displayHours = tData.hours % 12 || 12;
+                var displayMins = String(tData.mins).padStart(2, '0');
+                var displaySecs = String(tData.secs).padStart(2, '0');
+
+                var timeStr = displayHours + ':' + displayMins;
+                if (showSeconds) timeStr += ':' + displaySecs;
+
+                cityCache.time.innerHTML = timeStr + '<span class="ampm">' + ampm + '</span>';
+
+                if (cityCache.offset) {
+                    var tH = tData.hours + (tData.dayDiff * 24);
+                    const homeT = getTimeInZone(now, homeCity.zone);
+                    var homeH = homeT.hours + (homeT.dayDiff * 24);
+                    var diffH = tH - homeH;
+
+                    var homeDate = window.rekindleGetDateInZone(now, homeCity.zone);
+                    var targetDate = window.rekindleGetDateInZone(now, cityCache.zone);
+
+                    var homeMid = new Date(homeDate.getFullYear(), homeDate.getMonth(), homeDate.getDate());
+                    var targetMid = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+                    var relDayDiff = Math.round((targetMid - homeMid) / (1000 * 60 * 60 * 24));
+
+                    var dayText = window.t ? window.t('clocks.offset.today', 'Today') : "Today";
+                    if (relDayDiff > 0) dayText = window.t ? window.t('clocks.offset.tomorrow', 'Tomorrow') : "Tomorrow";
+                    if (relDayDiff < 0) dayText = window.t ? window.t('clocks.offset.yesterday', 'Yesterday') : "Yesterday";
+
+                    var sign = diffH >= 0 ? "+" : "";
+
+                    cityCache.offset.innerText = dayText + ', ' + sign + diffH + (window.t ? window.t('clocks.offset.hrs', 'HRS') : 'HRS');
+                }
+            });
+        }
+
+        function getTimeInZone(nowDate, timeZone) {
+            try {
+                // Use Shared Helper from time.js
+                const targetWallDate = window.rekindleGetDateInZone(nowDate, timeZone);
+
+                const h = targetWallDate.getHours();
+                const min = targetWallDate.getMinutes();
+                const sec = targetWallDate.getSeconds();
+
+                // Calculate diff in days
+                // "Target Wall Date" at Noon
+                const tDateOnly = new Date(targetWallDate.getFullYear(), targetWallDate.getMonth(), targetWallDate.getDate(), 12, 0, 0);
+                // "Local System Date" at Noon
+                const lDateOnly = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), 12, 0, 0);
+
+                const diffTime = tDateOnly.getTime() - lDateOnly.getTime();
+                const dayDiff = Math.round(diffTime / (1000 * 3600 * 24));
+
+                return { hours: h, mins: min, secs: sec, dayDiff: dayDiff };
+            } catch (e) {
+                console.error("Timezone error:", e);
+                return { hours: 0, mins: 0, secs: 0, dayDiff: 0 };
+            }
+        }
+
+        // --- SEARCH LOGIC ---
+        function handleSearchInput(query) {
+            clearTimeout(searchTimeout);
+            var resultsContainer = document.getElementById('search-results');
+
+            if (query.length < 2) {
+                resultsContainer.style.display = 'none';
+                resultsContainer.innerHTML = '';
+                return;
+            }
+
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = `<div style="padding:10px; color:#666;">${window.t ? window.t('clocks.modal.add.searching', 'Searching...') : 'Searching...'}</div>`;
+
+            searchTimeout = setTimeout(function () {
+                var url = "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(query) + "&count=5&language=en&format=json";
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", url, true);
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            try {
+                                var data = JSON.parse(xhr.responseText);
+                                renderSearchResults(data.results || []);
+                            } catch (e) {
+                                resultsContainer.innerHTML = `<div style="padding:10px; color:red;">${window.t ? window.t('clocks.modal.add.error_parse', 'Error parsing data.') : 'Error parsing data.'}</div>`;
+                            }
+                        } else {
+                            resultsContainer.innerHTML = `<div style="padding:10px; color:red;">${window.t ? window.t('clocks.modal.add.error_fetch', 'Error fetching data.') : 'Error fetching data.'}</div>`;
+                        }
+                    }
+                };
+                xhr.send();
+            }, 500);
+        }
+
+        function renderSearchResults(results) {
+            var container = document.getElementById('search-results');
+            container.innerHTML = '';
+
+            if (results.length === 0) {
+                container.innerHTML = `<div style="padding:10px; color:#666;">${window.t ? window.t('clocks.modal.add.none', 'No cities found.') : 'No cities found.'}</div>`;
+                return;
+            }
+
+            results.forEach(function (city) {
+                var div = document.createElement('div');
+                div.className = 'result-item';
+                var locParts = [city.admin1, city.country].filter(Boolean);
+                var locStr = locParts.join(', ');
+
+                div.innerHTML =
+                    '<div class="result-main">' + city.name + '</div>' +
+                    '<div class="result-sub">' + locStr + '</div>';
+
+                div.onclick = function () { addCityFromSearch(city); };
+                container.appendChild(div);
+            });
+        }
+
+        function addCityFromSearch(city) {
+            if (!city.timezone) {
+                showModal("Timezone data unavailable.");
+                return;
+            }
+
+            if (editTarget === 'home') {
+                homeCity = { name: city.name, zone: city.timezone };
+
+                // SYNC: Update Global Manual Location
+                var locData = { name: city.name, lat: city.latitude, lon: city.longitude, zone: city.timezone };
+                setSecureItem('rekindle_location_manual', JSON.stringify(locData));
+
+                // Also update User Settings in Firestore if needed (mirroring settings.html logic)
+                if (currentUser) {
+                    db.collection('users').doc(currentUser.uid).collection('settings').doc('general').set({ manualLocation: locData }, { merge: true });
+                    triggerSettingsSyncSignal();
+                }
+
+            } else {
+                cities.push({ name: city.name, zone: city.timezone });
+            }
+
+            saveData(); // Saves rekindle_clocks and rekindle_clocks_home
+            closeModal();
+            renderClocks();
+        }
+
+        // --- RENDERER ---
+        function renderClocks() {
+            domCache = null; // Invalidate cache on re-render
+            var list = document.getElementById('clock-list');
+            list.innerHTML = '';
+
+            // --- 1. Render Local Clock (Fixed at top) ---
+            var localDiv = document.createElement('div');
+            localDiv.className = 'clock-row';
+            localDiv.id = 'clock-row-local';
+            if (isEditing) localDiv.classList.add('editing');
+
+            // Add edit button if editing
+            var leftContent = '';
+            if (isEditing) {
+                leftContent = '<button class="edit-loc-btn" onclick="openEditHomeModal()">✎</button>';
+            }
+
+            // Global Manual Location Check for Badge
+            var globalLoc = JSON.parse(getSecureItem('rekindle_location_manual'));
+
+            // Badge HTML
+            var badgeHtml = '<span class="loc-badge">LOCATION</span>';
+
+            localDiv.innerHTML =
+                leftContent +
+                '<div class="clock-info">' +
+                '<div style="display:flex; align-items:center;">' +
+                '<div class="city-name">' + (homeCity.name === "Local" ? (window.t ? window.t('clocks.label.local', 'Local') : "Local") : homeCity.name) + '</div>' +
+                badgeHtml +
+                '</div>' +
+                '</div>' +
+                '<div class="clock-time" id="time-local">' +
+                '--:--:--' +
+                '</div>';
+
+            list.appendChild(localDiv);
+
+            // --- 2. Add New Button (If Editing) ---
+            if (isEditing) {
+                var addRow = document.createElement('div');
+                addRow.className = 'add-new-row';
+                addRow.innerHTML = '+ ' + (window.t ? window.t('clocks.modal.add.title', 'Add Location').toUpperCase() : 'ADD LOCATION');
+                addRow.onclick = openAddModal;
+                list.appendChild(addRow);
+            }
+
+            // --- 3. Render Cities ---
+            cities.forEach(function (city, index) {
+                var div = document.createElement('div');
+                div.className = 'clock-row';
+                div.id = 'clock-row-' + index;
+
+                if (isEditing) div.classList.add('editing');
+
+                var deleteHtml = '';
+                if (isEditing) {
+                    deleteHtml = '<button class="delete-btn" onclick="promptDelete(' + index + ')">×</button>';
+                }
+
+                div.innerHTML =
+                    deleteHtml +
+                    '<div class="clock-info">' +
+                    '<div class="time-offset" id="offset-' + index + '">Loading...</div>' +
+                    '<div class="city-name">' + (city.name === "Local" ? (window.t ? window.t('clocks.label.local', 'Local') : "Local") : city.name) + '</div>' +
+                    '</div>' +
+                    '<div class="clock-time" id="time-' + index + '">' +
+                    '--:--:--' +
+                    '</div>';
+
+                list.appendChild(div);
+            });
+
+            updateClocks();
+        }
+
+        // --- UI ACTIONS ---
+        function toggleEdit() {
+            isEditing = !isEditing;
+            document.getElementById('edit-btn').innerText = isEditing ? (window.t ? window.t('btn.done', 'Done') : "Done") : (window.t ? window.t('clocks.btn.edit', 'Edit') : "Edit");
+            var secsBtn = document.getElementById('secs-btn');
+            if (secsBtn) secsBtn.style.display = isEditing ? 'block' : 'none';
+            renderClocks();
+        }
+
+        function toggleSeconds() {
+            showSeconds = !showSeconds;
+            setSecureItem('rekindle_clocks_secs', JSON.stringify(showSeconds));
+            updateSecondsBtn();
+            updateClocks();
+        }
+
+        function updateSecondsBtn() {
+            var btn = document.getElementById('secs-btn');
+            if (btn) btn.innerText = (window.t ? window.t('clocks.btn.secs', 'Secs') : "Secs") + ": " + (showSeconds ? (window.t ? window.t('theme.on', 'On') : "On") : (window.t ? window.t('theme.off', 'Off') : "Off"));
+        }
+
+        function openAddModal() {
+            editTarget = null;
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('add-modal').classList.add('active');
+            document.getElementById('delete-modal').classList.remove('active');
+
+            document.getElementById('city-search').value = "";
+            document.getElementById('search-results').style.display = 'none';
+            document.getElementById('city-search').focus();
+        }
+
+        function openEditHomeModal() {
+            editTarget = 'home';
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('add-modal').classList.add('active');
+            document.getElementById('delete-modal').classList.remove('active');
+
+            document.getElementById('city-search').value = "";
+            document.getElementById('search-results').style.display = 'none';
+            document.getElementById('city-search').focus();
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').style.display = 'none';
+            document.getElementById('add-modal').classList.remove('active');
+            document.getElementById('delete-modal').classList.remove('active');
+            editTarget = null;
+        }
+
+        function promptDelete(index) {
+            deleteTargetIndex = index;
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('add-modal').classList.remove('active');
+            document.getElementById('delete-modal').classList.add('active');
+            document.getElementById('delete-msg-text').innerText = 'Remove ' + cities[index].name + '?';
+        }
+
+        function confirmDelete() {
+            if (deleteTargetIndex > -1) {
+                cities.splice(deleteTargetIndex, 1);
+                saveData();
+                renderClocks();
+            }
+            closeModal();
+        }
+
+    </script>
+
+
+
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675"
+        data-utcoffset="11"></script>
+    <!-- STANDARD MODAL POPUP -->
+    <div id="generic-modal-overlay">
+        <div class="modal-box">
+            <div id="modal-message" class="modal-text"></div>
+            <div id="modal-btns" class="modal-btns"></div>
+        </div>
+    </div>
+
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,1189 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+    
+    <title>Scrabble</title>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="js/i18n.js"></script>
+
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --tile-color: #ffffff;
+        }
+
+        body {
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -o-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            font-family: "Geneva", "Verdana", sans-serif;
+            background-color: #e5e5e5;
+            /* Background managed by settings */
+
+            margin: 0;
+            padding: 10px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+            user-select: none;
+            box-sizing: border-box;
+            /* Ensure padding is included in height */
+        }
+
+        /* WINDOW */
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: 4px 4px 0px black;
+            display: flex;
+            flex-direction: column;
+            min-height: fit-content;
+            /* ADAPTIVE HEIGHT */
+            max-min-height: 98vh;
+            /* Keep it from going offscreen */
+            width: 100%;
+            max-width: 600px;
+            position: relative;
+        }
+
+        /* TITLE BAR */
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: white;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+            z-index: 0;
+        }
+
+        .title-text {
+            font-weight: bold;
+            background: white;
+            padding: 0 15px;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            text-align: center;
+            line-height: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 2;
+            background: white;
+        }
+
+        /* NEW GAME BUTTON */
+        .new-game-btn {
+            position: absolute;
+            right: 10px;
+            background: white;
+            border: 2px solid black;
+            padding: 2px 8px;
+            font-weight: bold;
+            z-index: 2;
+            font-size: 0.8rem;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-family: inherit;
+            text-transform: uppercase;
+        }
+
+        .new-game-btn:active {
+            background: black;
+            color: white;
+            box-shadow: none;
+            transform: translate(1px, 1px);
+        }
+
+        /* GAME AREA */
+        .window-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            overflow: hidden;
+            width: 100%;
+            box-sizing: border-box;
+            position: relative;
+            /* Context for absolute sizing if needed */
+        }
+
+        /* HUD */
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 5px;
+            border-bottom: 1px solid black;
+            padding-bottom: 5px;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .score-box {
+            font-weight: bold;
+        }
+
+        .turn-indicator {
+            font-style: italic;
+        }
+
+        /* BOARD */
+        #board {
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            grid-template-rows: repeat(15, 1fr);
+            gap: 1px;
+            background: black;
+            border: 2px solid black;
+            /* Dimensions set by JS */
+            width: 100px;
+            height: 100px;
+            margin: 0 auto;
+        }
+
+        .sq {
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.6rem;
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        /* Bonus Squares */
+        .sq.tw {
+            background: #333;
+            color: white;
+        }
+
+        .sq.dw {
+            background: #999;
+            color: white;
+        }
+
+        .sq.tl {
+            background: #ccc;
+        }
+
+        .sq.dl {
+            background: #eee;
+        }
+
+        .sq span {
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Tiles on Board & Rack */
+        .tile-inner {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1rem;
+            position: relative;
+        }
+
+        .tile-on-board {
+            width: 90%;
+            height: 90%;
+            background: white;
+            border: 1px solid black;
+            z-index: 2;
+            box-shadow: 1px 1px 0 black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .tile-on-board.temp {
+            border: 1px dashed black;
+            background: #ffffcc;
+        }
+
+        /* RACK */
+        #rack {
+            margin-top: auto;
+            display: flex;
+            padding: 8px;
+            background: #eee;
+            border: 2px solid black;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: center;
+            flex-shrink: 0;
+            /* Prevent crushing */
+        }
+        #rack > * + * {
+            margin-left: 4px;
+}
+
+        .rack-tile {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border: 2px solid black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            position: relative;
+        }
+
+        .rack-tile.selected {
+            background: black;
+            color: white;
+            transform: translate(0, -5px);
+        }
+
+        .rack-tile.selected .tile-val {
+            color: white;
+        }
+
+        .tile-val {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 0.5rem;
+            font-weight: normal;
+            line-height: 1;
+        }
+
+        /* CONTROLS */
+        .controls {
+            display: flex;
+            margin-top: 10px;
+            width: 100%;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .controls > * + * {
+            margin-left: 10px;
+}
+
+        button {
+            background: white;
+            border: 2px solid black;
+            padding: 8px 15px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            flex: 1;
+        }
+
+        button:active {
+            background: black;
+            color: white;
+            box-shadow: none;
+            transform: translate(2px, 2px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #move-score {
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-top: 5px;
+            height: 1.2em;
+            flex-shrink: 0;
+        }
+
+        /* OVERLAYS */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .overlay > * + * {
+            margin-top: 15px;
+}
+
+        .modal-inner {
+            background: white;
+            border: 2px solid black;
+            padding: 20px;
+            box-shadow: 4px 4px 0 black;
+            max-width: 80%;
+        }
+
+        .overlay button {
+            flex: none;
+            width: auto;
+            padding: 10px 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #000;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* STANDARD MODAL SYSTEM */
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            font-family: "Geneva", "Verdana", sans-serif;
+        }
+
+        .modal-box {
+            background: white;
+            border: 2px solid black;
+            padding: 20px;
+            box-shadow: 6px 6px 0 black;
+            max-width: 300px;
+            width: 80%;
+            text-align: center;
+        }
+
+        .modal-text {
+            margin-bottom: 20px;
+            font-weight: bold;
+            line-height: 1.4;
+            color: black;
+        }
+
+        .modal-btns {
+            display: flex;
+            justify-content: center;
+        }
+
+        .modal-btns > * + * {
+            margin-left: 10px;
+}
+
+        .modal-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 6px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-family: inherit;
+        }
+
+        .modal-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+    </style>
+    <script src="theme.js?v=18"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="location.href='index'">X</div>
+            <span class="title-text" data-i18n="words.title">Scrabble</span>
+            <button class="new-game-btn" onclick="openNewGameModal()" data-i18n="words.btn.new">New</button>
+        </div>
+
+        <div class="window-content" id="main-content">
+
+            <div class="hud" id="hud">
+                <div class="score-box"><span data-i18n="words.hud.you">You:</span> <span id="p1-score">0</span></div>
+                <div class="turn-indicator" id="status-text" data-i18n="words.status.connecting">Connecting...</div>
+                <div class="score-box"><span data-i18n="words.hud.them">Them:</span> <span id="p2-score">0</span></div>
+            </div>
+
+            <div id="board"></div>
+
+            <div id="move-score"></div>
+
+            <div id="rack"></div>
+
+            <div class="controls" id="controls">
+                <button onclick="recallTiles()" data-i18n="words.btn.recall">Recall</button>
+                <button onclick="shuffleRack()" data-i18n="words.btn.mix">Mix</button>
+                <button onclick="playMove()" id="play-btn" disabled="" data-i18n="words.btn.play">PLAY</button>
+            </div>
+        </div>
+
+        <div id="status-overlay" class="overlay" style="display:none;">
+            <h2 id="overlay-title" data-i18n="words.overlay.searching.title">Searching...</h2>
+            <div class="spinner" id="overlay-spinner"></div>
+            <p id="overlay-msg" data-i18n="words.overlay.searching.text">Looking for an opponent...</p>
+            <button onclick="cancelSearch()" id="cancel-btn" data-i18n="words.overlay.searching.btn_cancel">Cancel</button>
+        </div>
+
+        <div id="login-overlay" class="overlay" style="display:none;">
+            <h2 data-i18n="words.overlay.login.title">Words Online</h2>
+            <p data-i18n="words.overlay.login.text">You must log in to play.</p>
+            <button onclick="location.href='index?login=true'" data-i18n="words.overlay.login.btn_login">Log In</button>
+        </div>
+
+        <div id="new-game-modal" class="overlay" style="display:none; background:rgba(255,255,255,0.8);">
+            <div class="modal-inner">
+                <h3 data-i18n="words.modal.new_game.title">New Game?</h3>
+                <p style="margin:15px 0;" data-i18n="words.modal.new_game.text">This will forfeit your current game.</p>
+                <div style="display: flex; justify-content: center">
+                    <button onclick="forfeitAndRestart(); closeNewGameModal();" data-i18n="words.modal.new_game.btn_yes">Yes</button>
+                    <button onclick="closeNewGameModal()" data-i18n="words.modal.new_game.btn_no" style="margin-left: 10px">No</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY7x7vVmlYUyVZNLuCCmIQYa6PWFVfZqQ",
+            authDomain: "rekindle-dd1fa.firebaseapp.com",
+            projectId: "rekindle-dd1fa",
+            storageBucket: "rekindle-dd1fa.firebasestorage.app",
+            messagingSenderId: "748026882518",
+            appId: "1:748026882518:web:6877dd4329318070c11c77"
+        };
+        // --- CONFIGURATION ---
+        function showModal(msg, isConfirm = false, callback = null) {
+            const overlay = document.getElementById('modal-overlay');
+            const messageEl = document.getElementById('modal-message');
+            const btnsEl = document.getElementById('modal-btns');
+            messageEl.textContent = msg;
+            if (isConfirm) {
+                const cancelTxt = window.t ? window.t('words.btn.cancel') : "Cancel";
+                const okTxt = window.t ? window.t('words.btn.ok') : "OK";
+                btnsEl.innerHTML = `<button class="modal-btn" id="modal-cancel">${cancelTxt}</button><button class="modal-btn" id="modal-ok">${okTxt}</button>`;
+                document.getElementById('modal-cancel').onclick = () => { overlay.style.display = 'none'; if (callback) callback(false); };
+                document.getElementById('modal-ok').onclick = () => { overlay.style.display = 'none'; if (callback) callback(true); };
+            } else {
+                const okTxt = window.t ? window.t('words.btn.ok') : "OK";
+                btnsEl.innerHTML = `<button class="modal-btn" onclick="hideModal()">${okTxt}</button>`;
+            }
+            overlay.style.display = 'flex';
+        }
+        function hideModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+
+        // Note: Persistence disabled due to IndexedDB hangs on some browsers (Safari)
+
+        // db.enablePersistence({ synchronizeTabs: true }) ...
+        const auth = firebase.auth();
+
+        // --- GAME CONSTANTS ---
+        const LETTER_VALUES = {
+            A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8, K: 5, L: 1, M: 3, N: 1, O: 1, P: 3, Q: 10, R: 1, S: 1, T: 1, U: 1, V: 4, W: 4, X: 8, Y: 4, Z: 10, _: 0
+        };
+        const BAG_DISTRIBUTION = "AAAAAAAAABBCCDDDDEEEEEEEEEEEEFFGGGHHIIIIIIIIIJKLLLLMMNNNNNNOOOOOOOOPPQRRRRRRSSSSTTTTTTUUUUVVWWXYYZ__";
+        const BOARD_BONUSES = [
+            4, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 1, 0, 0, 4,
+            0, 3, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 3, 0,
+            0, 0, 3, 0, 0, 0, 1, 0, 1, 0, 0, 0, 3, 0, 0,
+            1, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 1,
+            0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0,
+            0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0,
+            0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0,
+            4, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 4,
+            0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0,
+            0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0,
+            0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0,
+            1, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 1,
+            0, 0, 3, 0, 0, 0, 1, 0, 1, 0, 0, 0, 3, 0, 0,
+            0, 3, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 3, 0,
+            4, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 1, 0, 0, 4
+        ];
+
+        // --- STATE ---
+        let currentUser = null;
+        let currentUsername = null;
+        let gameId = null;
+        let gameData = null;
+        let myRack = [];
+        let selectedTileIdx = -1;
+        let placedTiles = [];
+        let unsubscribe = null;
+
+        // --- INIT ---
+        window.onload = () => {
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            initBoard();
+
+            // Wait for DOM to be fully ready before calculating size
+            setTimeout(resizeBoard, 100);
+            window.addEventListener('resize', resizeBoard);
+
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    currentUsername = user.email.split('@')[0];
+                    resumeOrFindGame();
+                } else {
+                    document.getElementById('login-overlay').style.display = 'flex';
+                }
+            });
+        };
+
+        // Helper to HTML-escape text
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        // Helper to sanitize background image URLs from localStorage
+        function sanitizeBackgroundImage(imageString) {
+            if (!imageString) return '';
+            if (imageString.startsWith('url("data:image/png;base64,')) {
+                return imageString;
+            }
+            if (imageString.startsWith('url("') && imageString.endsWith('")')) {
+                const url = imageString.substring(5, imageString.length - 2);
+                if ((url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) && !url.includes('javascript:')) {
+                    return imageString;
+                }
+            }
+            return '';
+        }
+
+
+        // --- RESIZING LOGIC ---
+        function resizeBoard() {
+            const board = document.getElementById('board');
+            const container = document.getElementById('main-content');
+
+            // Get heights of other elements
+            const hud = document.getElementById('hud');
+            const rack = document.getElementById('rack');
+            const controls = document.getElementById('controls');
+            const scoreMsg = document.getElementById('move-score');
+
+            // Calculate height used by non-board elements + margins
+            // If elements aren't rendered yet (0 height), estimate them
+            const hudH = hud.offsetHeight || 30;
+            const rackH = rack.offsetHeight || 50;
+            const ctrlH = controls.offsetHeight || 40;
+            const msgH = scoreMsg.offsetHeight || 20;
+            const padding = 30; // internal padding/gaps
+
+            const availableWidth = container.clientWidth;
+            // Use window height as a constraint since container might grow indefinitely
+            const availableHeight = window.innerHeight - (hudH + rackH + ctrlH + msgH + padding + 60); // 60 for title bar + margin
+
+            // Board must be square
+            let size = Math.min(availableWidth, availableHeight);
+
+            // Minimum safe size
+            if (size < 200) size = 200;
+
+            board.style.width = size + 'px';
+            board.style.height = size + 'px';
+        }
+
+        // --- MATCHMAKING LOGIC ---
+
+        async function resumeOrFindGame() {
+            const loadingTitle = window.t ? window.t('words.modal.loading.title') : "Loading";
+            const checkingTxt = window.t ? window.t('words.modal.loading.text') : "Checking active games...";
+            showOverlay(loadingTitle, checkingTxt, true);
+            try {
+                const p1Snap = await db.collection('word_games').where('p1_uid', '==', currentUser.uid).get();
+                const activeP1 = p1Snap.docs.find(d => d.data().status !== 'finished');
+                if (activeP1) {
+                    gameId = activeP1.id;
+                    hideOverlay();
+                    startGameListener();
+                    return;
+                }
+                const p2Snap = await db.collection('word_games').where('p2_uid', '==', currentUser.uid).get();
+                const activeP2 = p2Snap.docs.find(d => d.data().status === 'active');
+                if (activeP2) {
+                    gameId = activeP2.id;
+                    hideOverlay();
+                    startGameListener();
+                    return;
+                }
+                findGame();
+            } catch (e) {
+                console.error(e);
+                findGame();
+            }
+        }
+
+        async function findGame() {
+            const matchmakingTitle = window.t ? window.t('words.modal.matchmaking.title') : "Matchmaking";
+            const lookingTxt = window.t ? window.t('words.modal.matchmaking.text') : "Looking for a player...";
+            showOverlay(matchmakingTitle, lookingTxt, true);
+            const gamesRef = db.collection('word_games');
+            try {
+                const snapshot = await gamesRef.where('status', '==', 'waiting').limit(10).get();
+                let foundGame = null;
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.p1_uid !== currentUser.uid) foundGame = doc;
+                });
+
+                if (foundGame) {
+                    gameId = foundGame.id;
+                    const data = foundGame.data();
+                    const updates = {
+                        p2_uid: currentUser.uid, // UID is safe
+                        p2_name: escapeHTML(currentUsername), // CRITICAL: Sanitize username
+                        status: 'active',
+                        lastActive: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    if (data.turn === null) updates.turn = currentUser.uid;
+                    await gamesRef.doc(gameId).update(updates);
+                    startGameListener();
+                } else {
+                    const newBag = shuffleBag(BAG_DISTRIBUTION.split(''));
+                    const p1Tiles = newBag.splice(0, 7);
+                    const p2Tiles = newBag.splice(0, 7);
+                    const newGame = { // New game creation
+                        p1_uid: currentUser.uid,
+                        p1_name: currentUsername,
+                        p2_uid: null,
+                        status: 'waiting',
+                        lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+                        bag: newBag, board: {}, turn: currentUser.uid,
+                        p1_rack: p1Tiles, p2_rack: p2Tiles, p1_score: 0, p2_score: 0
+                    };
+                    const docRef = await gamesRef.add(newGame);
+                    gameId = docRef.id;
+                    hideOverlay();
+                    startGameListener();
+                }
+            } catch (e) {
+                const errorTitle = window.t ? window.t('words.modal.error.title') : "Error";
+                const errorTxt = window.t ? window.t('words.modal.error.text') : "Connection error.";
+                showOverlay(errorTitle, errorTxt, false);
+            }
+        }
+
+        function startGameListener() {
+            if (unsubscribe) unsubscribe();
+            unsubscribe = db.collection('word_games').doc(gameId)
+                .onSnapshot(doc => {
+                    if (!doc.exists) return;
+                    gameData = doc.data();
+
+                    if (gameData.status === 'finished') {
+                        hideOverlay();
+                        document.getElementById('status-text').innerText = window.t ? window.t('words.status.game_ended') : "Game Ended.";
+                        document.getElementById('play-btn').disabled = true;
+                        return;
+                    }
+
+                    const isP1 = (gameData.p1_uid === currentUser.uid);
+
+                    // Logic to send initial chat message if a new 'waiting' game was just created by this user
+                    if (gameData.status === 'waiting' && isP1 && !gameData.notifiedChat) {
+                        sendNewGameNotification(gameId);
+                        // Mark as notified so we don't spam chat
+                        db.collection('word_games').doc(gameId).update({ notifiedChat: true });
+                    }
+
+                    if (gameData.status === 'waiting' && isP1) { hideOverlay(); updateUI(); }
+                    else if (gameData.status === 'active') { hideOverlay(); updateUI(); }
+                    else if (gameData.status === 'waiting' && !isP1) {
+                        const waitingTitle = window.t ? window.t('words.status.waiting') : "Waiting";
+                        const waitingTxt = window.t ? window.t('words.status.waiting_opponent') : "Waiting for opponent...";
+                        showOverlay(waitingTitle, waitingTxt, true);
+                    }
+                });
+        }
+
+        // --- NEW GAME / FORFEIT LOGIC ---
+        function openNewGameModal() {
+            document.getElementById('new-game-modal').style.display = 'flex';
+        }
+
+        function closeNewGameModal() {
+            document.getElementById('new-game-modal').style.display = 'none';
+        }
+
+        async function forfeitAndRestart() {
+            if (unsubscribe) unsubscribe();
+
+            const forfeitingTitle = window.t ? window.t('words.modal.forfeiting.title') : "Forfeiting";
+            const endingTxt = window.t ? window.t('words.modal.forfeiting.text') : "Ending current game...";
+            showOverlay(forfeitingTitle, endingTxt, true);
+
+            if (gameId) {
+                try {
+                    await db.collection('word_games').doc(gameId).update({
+                        status: 'finished',
+                        endReason: 'forfeit_by_' + currentUser.uid
+                    });
+                } catch (e) {
+                    console.log("Forfeit update failed:", e);
+                }
+            }
+
+            // Reset Local State
+            gameId = null;
+            gameData = null;
+            placedTiles = [];
+            myRack = [];
+            selectedTileIdx = -1;
+
+            // Reset UI
+            document.getElementById('board').innerHTML = '';
+            initBoard();
+            document.getElementById('rack').innerHTML = '';
+            document.getElementById('move-score').innerText = '';
+            document.getElementById('p1-score').innerText = '0';
+            document.getElementById('p2-score').innerText = '0';
+
+            findGame();
+        }
+
+        async function sendNewGameNotification(newGameId) {
+            try {
+                await db.collection('rooms').doc('general').collection('messages').add({
+                    text: `words:${newGameId}`, // Custom format: <game>:<gameId>
+                    uid: currentUser.uid,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    is_game_link: true
+                });
+            } catch (e) {
+                console.error("Failed to send chat notification:", e);
+            }
+        }
+
+        // --- GAME LOGIC ---
+        function shuffleBag(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function shuffleRack() {
+            if (placedTiles.length > 0) return;
+            for (let i = myRack.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [myRack[i], myRack[j]] = [myRack[j], myRack[i]];
+            }
+            renderRack();
+        }
+
+        function updateUI() {
+            const isMyTurn = gameData.turn === currentUser.uid;
+            const isP1 = (currentUser.uid === gameData.p1_uid);
+            const opponentName = isP1 ? (gameData.p2_name || (window.t ? window.t('words.hud.opponent') : "Opponent")) : gameData.p1_name;
+
+            let statusText = "";
+            if (gameData.status === 'waiting') {
+                statusText = isP1 ? (window.t ? window.t('words.status.first_move') : "Make the first move!") : (window.t ? window.t('words.status.waiting_opponent') : "Waiting for opponent...");
+            } else {
+                const waitingForTxt = window.t ? window.t('words.status.waiting_for') : "Waiting for ${name}";
+                statusText = isMyTurn ? (window.t ? window.t('words.status.your_turn') : "Your Turn") : waitingForTxt.replace('${name}', opponentName);
+            }
+            document.getElementById('status-text').innerText = statusText;
+            document.getElementById('p1-score').innerText = isP1 ? gameData.p1_score : gameData.p2_score;
+            document.getElementById('p2-score').innerText = isP1 ? gameData.p2_score : gameData.p1_score;
+            document.getElementById('play-btn').disabled = !isMyTurn;
+
+            // Render Board
+            document.querySelectorAll('.sq').forEach(sq => {
+                const existingTile = sq.querySelector('.tile-on-board');
+                if (existingTile && !existingTile.classList.contains('temp')) existingTile.remove();
+            });
+
+            for (const [key, letter] of Object.entries(gameData.board)) {
+                const [x, y] = key.split('_').map(Number);
+                const cell = document.querySelector(`.sq[data-x="${x}"][data-y="${y}"]`);
+                if (cell && !cell.querySelector('.tile-on-board')) {
+                    cell.innerHTML += getTileHTML(letter);
+                }
+            }
+
+            if (placedTiles.length === 0) {
+                myRack = isP1 ? gameData.p1_rack : gameData.p2_rack;
+                renderRack();
+                document.getElementById('move-score').innerText = "";
+            }
+
+            // Recalculate layout in case rack size changed
+            resizeBoard();
+        }
+
+        function getTileHTML(letter, isTemp = false) {
+            const score = LETTER_VALUES[letter] || 0;
+            const cls = isTemp ? 'tile-on-board temp' : 'tile-on-board';
+            return `<div class="${cls}"><div class="tile-inner">${letter}<span class="tile-val">${score}</span></div></div>`;
+        }
+
+        function renderRack() {
+            const rackEl = document.getElementById('rack');
+            rackEl.innerHTML = '';
+            myRack.forEach((letter, i) => {
+                if (letter !== null) {
+                    const tile = document.createElement('div');
+                    tile.className = 'rack-tile';
+                    if (selectedTileIdx === i) tile.classList.add('selected');
+
+                    const score = LETTER_VALUES[letter] || 0;
+                    tile.innerHTML = `<div class="tile-inner">${letter}<span class="tile-val">${score}</span></div>`;
+
+                    tile.onclick = () => selectTile(i);
+                    rackEl.appendChild(tile);
+                }
+            });
+        }
+
+        function selectTile(index) {
+            if (gameData.turn !== currentUser.uid) return;
+            if (selectedTileIdx === index) selectedTileIdx = -1;
+            else selectedTileIdx = index;
+            renderRack();
+        }
+
+        function handleBoardClick(x, y) {
+            if (selectedTileIdx === -1) return;
+            if (gameData.board[`${x}_${y}`]) return;
+            if (placedTiles.some(t => t.x === x && t.y === y)) return;
+
+            const letter = myRack[selectedTileIdx];
+            const cell = document.querySelector(`.sq[data-x="${x}"][data-y="${y}"]`);
+            cell.innerHTML += getTileHTML(letter, true);
+
+            placedTiles.push({ x, y, letter, indexInRack: selectedTileIdx });
+            myRack[selectedTileIdx] = null;
+            selectedTileIdx = -1;
+
+            renderRack();
+            calculateCurrentMoveScore();
+        }
+
+        function recallTiles() {
+            placedTiles.forEach(t => {
+                myRack[t.indexInRack] = t.letter;
+                const cell = document.querySelector(`.sq[data-x="${t.x}"][data-y="${t.y}"]`);
+                const temp = cell.querySelector('.temp');
+                if (temp) temp.remove();
+            });
+            placedTiles = [];
+            selectedTileIdx = -1;
+            renderRack();
+            document.getElementById('move-score').innerText = "";
+        }
+
+        function initBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            for (let y = 0; y < 15; y++) {
+                for (let x = 0; x < 15; x++) {
+                    const sq = document.createElement('div');
+                    sq.className = 'sq';
+                    sq.dataset.x = x; sq.dataset.y = y;
+
+                    const bIndex = y * 15 + x;
+                    const typeCode = BOARD_BONUSES[bIndex];
+                    let type = '', label = '';
+
+                    if (typeCode === 4) { type = 'tw'; label = window.t ? window.t('words.bonus.tw') : 'TW'; }
+                    else if (typeCode === 3) { type = 'dw'; label = window.t ? window.t('words.bonus.dw') : 'DW'; }
+                    else if (typeCode === 2) { type = 'tl'; label = window.t ? window.t('words.bonus.tl') : 'TL'; }
+                    else if (typeCode === 1) { type = 'dl'; label = window.t ? window.t('words.bonus.dl') : 'DL'; }
+                    else if (x === 7 && y === 7) { type = 'dw'; label = '★'; }
+
+                    if (type) {
+                        sq.classList.add(type);
+                        sq.innerHTML = `<span>${label}</span>`;
+                    }
+                    sq.onclick = () => handleBoardClick(x, y);
+                    boardEl.appendChild(sq);
+                }
+            }
+        }
+
+        // --- SCORING CALCULATION ---
+        function calculateCurrentMoveScore() {
+            if (placedTiles.length === 0) {
+                document.getElementById('move-score').innerText = "";
+                return;
+            }
+
+            const tempBoard = { ...gameData.board };
+            placedTiles.forEach(t => { tempBoard[`${t.x}_${t.y}`] = t.letter; });
+
+            let totalScore = 0;
+
+            // Check orientation validity
+            const xs = placedTiles.map(t => t.x);
+            const ys = placedTiles.map(t => t.y);
+            const uniqueXs = new Set(xs).size;
+            const uniqueYs = new Set(ys).size;
+
+            const isHorizontal = uniqueYs === 1;
+            const isVertical = uniqueXs === 1;
+
+            if (uniqueXs > 1 && uniqueYs > 1) {
+                const notInLineTxt = window.t ? window.t('words.error.not_in_line') : "Not in a line (0)";
+                document.getElementById('move-score').innerText = notInLineTxt;
+                document.getElementById('play-btn').disabled = true;
+                return;
+            }
+            document.getElementById('play-btn').disabled = false;
+
+
+            // Check connectedness - simplified check, assuming single row/col of placed tiles
+            // Real Scrabble checking of contiguous tiles and validity is complex and omitted for e-ink simplicity
+
+            if (isHorizontal) {
+                const row = placedTiles[0].y;
+                let minX = placedTiles[0].x;
+                let maxX = placedTiles[0].x;
+                while (tempBoard[`${minX - 1}_${row}`]) minX--;
+                while (tempBoard[`${maxX + 1}_${row}`]) maxX++;
+                if (minX !== maxX) totalScore += scoreWord(minX, maxX, row, row, tempBoard);
+            }
+
+            if (isVertical) {
+                const col = placedTiles[0].x;
+                let minY = placedTiles[0].y;
+                let maxY = placedTiles[0].y;
+                while (tempBoard[`${col}_${minY - 1}`]) minY--;
+                while (tempBoard[`${col}_${maxY + 1}`]) maxY++;
+                if (minY !== maxY) totalScore += scoreWord(col, col, minY, maxY, tempBoard);
+            }
+
+            placedTiles.forEach(t => {
+                if (isHorizontal) {
+                    let minY = t.y;
+                    let maxY = t.y;
+                    while (tempBoard[`${t.x}_${minY - 1}`]) minY--;
+                    while (tempBoard[`${t.x}_${maxY + 1}`]) maxY++;
+                    if (minY !== maxY) totalScore += scoreWord(t.x, t.x, minY, maxY, tempBoard);
+                } else {
+                    let minX = t.x;
+                    let maxX = t.x;
+                    while (tempBoard[`${minX - 1}_${t.y}`]) minX--;
+                    while (tempBoard[`${maxX + 1}_${t.y}`]) maxX++;
+                    if (minX !== maxX) totalScore += scoreWord(minX, maxX, t.y, t.y, tempBoard);
+                }
+            });
+
+            if (placedTiles.length === 7) totalScore += 50;
+            const scoreTxt = window.t ? window.t('words.score.points') : "Points: ${score}";
+            document.getElementById('move-score').innerText = scoreTxt.replace('${score}', totalScore);
+        }
+
+        function scoreWord(x1, x2, y1, y2, boardState) {
+            let wordScore = 0;
+            let wordMult = 1;
+
+            if (y1 === y2) { // Horizontal
+                for (let x = x1; x <= x2; x++) {
+                    const letter = boardState[`${x}_${y1}`];
+                    const isNew = placedTiles.some(t => t.x === x && t.y === y1);
+                    let letterScore = LETTER_VALUES[letter] || 0;
+                    if (isNew) {
+                        const bIndex = y1 * 15 + x;
+                        const type = BOARD_BONUSES[bIndex];
+                        if (type === 1) letterScore *= 2;
+                        if (type === 2) letterScore *= 3;
+                        if (type === 3) wordMult *= 2;
+                        if (type === 4) wordMult *= 3;
+                        if (x === 7 && y1 === 7) wordMult *= 2;
+                    }
+                    wordScore += letterScore;
+                }
+            } else { // Vertical
+                for (let y = y1; y <= y2; y++) {
+                    const letter = boardState[`${x1}_${y}`];
+                    const isNew = placedTiles.some(t => t.x === x1 && t.y === y);
+                    let letterScore = LETTER_VALUES[letter] || 0;
+                    if (isNew) {
+                        const bIndex = y * 15 + x1;
+                        const type = BOARD_BONUSES[bIndex];
+                        if (type === 1) letterScore *= 2;
+                        if (type === 2) letterScore *= 3;
+                        if (type === 3) wordMult *= 2;
+                        if (type === 4) wordMult *= 3;
+                        if (x1 === 7 && y === 7) wordMult *= 2;
+                    }
+                    wordScore += letterScore;
+                }
+            }
+            return wordScore * wordMult;
+        }
+
+        // --- MOVE SUBMISSION ---
+        async function playMove() {
+            if (placedTiles.length === 0) return;
+
+            // Simple validation check: tiles must be in a straight line
+            const xs = placedTiles.map(t => t.x);
+            const ys = placedTiles.map(t => t.y);
+            const uniqueXs = new Set(xs).size;
+            const uniqueYs = new Set(ys).size;
+
+            if (uniqueXs > 1 && uniqueYs > 1) {
+                showModal(window.t ? window.t('words.error.straight_line') : "Tiles must be in a straight line.");
+                return;
+            }
+
+            // Further complex checks (word validity, connectivity) are skipped for e-ink simplicity
+            // Assuming the user is honest or playing casually for now.
+
+            let movePoints = parseInt(document.getElementById('move-score').innerText.replace('Points: ', '')) || 0;
+
+            const newBoard = { ...gameData.board };
+            placedTiles.forEach(t => { newBoard[`${t.x}_${t.y}`] = t.letter; });
+
+            let currentBag = [...gameData.bag];
+            let newRack = myRack.filter(l => l !== null);
+            while (newRack.length < 7 && currentBag.length > 0) {
+                newRack.push(currentBag.pop());
+            }
+
+            const isP1 = (currentUser.uid === gameData.p1_uid);
+            let nextTurn = isP1 ? gameData.p2_uid : gameData.p1_uid;
+
+            const updates = {
+                board: newBoard,
+                bag: currentBag,
+                turn: nextTurn,
+                lastActive: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            if (isP1) {
+                updates.p1_rack = newRack;
+                updates.p1_score = gameData.p1_score + movePoints; // Score is numeric, safe
+            } else {
+                updates.p2_rack = newRack;
+                updates.p2_score = gameData.p2_score + movePoints;
+            }
+
+            placedTiles = [];
+            document.getElementById('move-score').innerText = "";
+
+            try {
+                await db.collection('word_games').doc(gameId).update(updates);
+            } catch (e) {
+                showModal(window.t ? window.t('words.error.connection') : "Connection error.");
+            }
+        }
+
+        function showOverlay(title, msg, showSpinner) {
+            const el = document.getElementById('status-overlay');
+            el.style.display = 'flex';
+            document.getElementById('overlay-title').innerText = title;
+            document.getElementById('overlay-msg').innerText = msg;
+            document.getElementById('overlay-spinner').style.display = showSpinner ? 'block' : 'none';
+        }
+
+        function hideOverlay() {
+            document.getElementById('status-overlay').style.display = 'none';
+        }
+
+        function cancelSearch() {
+            if (unsubscribe) unsubscribe();
+            location.href = 'index';
+        }
+
+
+
+
+    </script>
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675" data-utcoffset="11"></script>
+    <!-- STANDARD MODAL POPUP -->
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <div id="modal-message" class="modal-text"></div>
+            <div id="modal-btns" class="modal-btns"></div>
+        </div>
+    </div>
+
+
+</body></html>

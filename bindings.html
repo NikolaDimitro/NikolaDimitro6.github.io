@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+
+    <title>Connections</title>
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+            --stripe-pattern: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+            --selected-bg: #000000;
+            --selected-text: #ffffff;
+            --item-height: 70px;
+        }
+
+        body {
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -o-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #e5e5e5;
+            /* Default Background (Overridden by JS) */
+            /* Background managed by settings */
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            /* FIX: Centers Vertically */
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        /* WINDOW FRAME */
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            min-height: fit-content;
+            /* ADAPTIVE HEIGHT */
+            max-min-height: 95vh;
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+        }
+
+        /* TITLE BAR */
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0 10px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: var(--stripe-pattern);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        /* CLOSE BUTTON (HOME) */
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* GAME AREA */
+        #game-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #message-bar {
+            text-align: center;
+            font-weight: bold;
+            min-height: 1.5em;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        /* THE GRID */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .card {
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 6px;
+            height: var(--item-height);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            padding: 5px;
+            word-wrap: break-word;
+        }
+
+        /* Selection State */
+        .card.selected {
+            background: var(--selected-bg);
+            color: var(--selected-text);
+            border-color: black;
+        }
+
+        /* SOLVED ROWS */
+        .solved-container {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 8px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .solved-container>*+* {
+            margin-top: 8px;
+        }
+
+        .solved-row {
+            width: 100%;
+            height: var(--item-height);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 2px solid black;
+        }
+
+        .solved-title {
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 1rem;
+        }
+
+        .solved-items {
+            font-size: 0.8rem;
+            margin-top: 2px;
+        }
+
+        /* Difficulty Colors (E-ink Friendly) */
+        .level-1 {
+            background-color: #ddd;
+            color: black;
+        }
+
+        .level-2 {
+            background-color: #999;
+            color: white;
+        }
+
+        .level-3 {
+            background-color: black;
+            color: white;
+        }
+
+        .level-4 {
+            background-color: white;
+            color: black;
+            border: 4px double black;
+        }
+
+        /* CONTROLS */
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .controls>*+* {
+            margin-left: 15px;
+        }
+
+        button {
+            background: white;
+            border: 2px solid black;
+            border-radius: 20px;
+            padding: 10px 20px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 2px 2px 0 black;
+            flex: 1;
+        }
+
+        button:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        button:disabled {
+            opacity: 0.3;
+            border-color: #ccc;
+            box-shadow: none;
+            cursor: default;
+        }
+
+        /* MISTAKES */
+        .mistakes-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .mistakes-container>*+* {
+            margin-left: 10px;
+        }
+
+        .mistake-dot {
+            width: 12px;
+            height: 12px;
+            background: #333;
+            border-radius: 50%;
+        }
+    </style>
+    <script src="js/i18n.js"></script>
+    <script src="time.js"></script>
+    <script src="theme.js?v=18"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <!-- Home Button -->
+            <div class="close-box" onclick="window.location.href='index'">X</div>
+            <span class="title-text" data-i18n="bindings.title">Connections</span>
+            <div class="new-game-btn" onclick="startNewGame()" data-i18n="bindings.btn.new_game"
+                style="position: absolute; right: 10px; z-index: 2; cursor: pointer; background: white; border: 2px solid black; padding: 2px 8px; font-weight: bold; font-size: 0.8rem; box-shadow: 2px 2px 0 black;"
+                onmousedown="this.style.boxShadow='none'; this.style.transform='translate(2px, 2px)';"
+                onmouseup="this.style.boxShadow='2px 2px 0 black'; this.style.transform='none';">NEW</div>
+        </div>
+
+        <div id="game-area">
+            <div id="message-bar" data-i18n="bindings.msg.instructions">Create four groups of four!</div>
+
+            <div id="solved-area" class="solved-container">
+                <!-- Solved rows go here -->
+            </div>
+
+            <div id="grid-area" class="grid">
+                <!-- Cards go here -->
+            </div>
+
+            <div class="mistakes-container">
+                <span data-i18n="bindings.msg.mistakes">Mistakes remaining:</span>
+                <div id="mistakes-visual" style="display: flex">
+                    <div class="mistake-dot"></div>
+                    <div class="mistake-dot" style="margin-left: 5px"></div>
+                    <div class="mistake-dot" style="margin-left: 5px"></div>
+                    <div class="mistake-dot" style="margin-left: 5px"></div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button onclick="shuffle()" data-i18n="bindings.btn.shuffle">Shuffle</button>
+                <button onclick="deselectAll()" data-i18n="bindings.btn.deselect">Deselect</button>
+                <button onclick="submitGuess()" id="submit-btn" disabled=""
+                    data-i18n="bindings.btn.submit">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- PUZZLE DATA ---
+        let PUZZLES = [];
+
+        // --- STATE ---
+        let currentPuzzle = null;
+        let activeCards = [];
+        let selectedIndices = [];
+        let solvedGroups = [];
+        let mistakesLeft = 4;
+        let isGameOver = false;
+
+        // --- INIT ---
+        window.onload = async () => {
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            await loadAllPuzzles();
+            loadRandomPuzzle();
+            renderGame();
+        };
+
+        async function loadAllPuzzles() {
+            try {
+                const response = await fetch('connections_prompts.jsonl');
+                const text = await response.text();
+                const lines = text.trim().split('\n');
+                PUZZLES = lines.filter(line => line.length > 0).map((line, index) => {
+                    const data = JSON.parse(line);
+                    return {
+                        id: index + 1,
+                        groups: data.solution.groups.map((g, i) => ({
+                            title: g.reason.toUpperCase(),
+                            items: g.words.map(w => w.toUpperCase()),
+                            level: i + 1
+                        }))
+                    };
+                });
+            } catch (e) {
+                console.error("Failed to load puzzles", e);
+                // Fallback to defaults
+                PUZZLES = [
+                    {
+                        id: 1,
+                        groups: [
+                            { title: "KINDS OF PAPER", items: ["PARCHMENT", "VELLUM", "CARDSTOCK", "MANILA"], level: 1 },
+                            { title: "BOOK PARTS", items: ["SPINE", "JACKET", "LEAF", "SIGNATURE"], level: 2 },
+                            { title: "WORDS STARTING WITH 'INK'", items: ["INKLING", "INKWELL", "INKBLOT", "INKJET"], level: 3 },
+                            { title: "___ BINDING", items: ["SPELL", "DOUBLE", "SPIRAL", "PERFECT"], level: 4 }
+                        ]
+                    },
+                    {
+                        id: 2,
+                        groups: [
+                            { title: "E-READER BRANDS", items: ["KINDLE", "KOBO", "NOOK", "BOOX"], level: 1 },
+                            { title: "SYNONYMS FOR FIRE", items: ["FLAME", "BLAZE", "INFERNO", "KINDLING"], level: 2 },
+                            { title: "TYPES OF CLOUDS", items: ["CIRRUS", "CUMULUS", "STRATUS", "NIMBUS"], level: 3 },
+                            { title: "THINGS THAT ARE BLACK & WHITE", items: ["ZEBRA", "PANDA", "SKUNK", "NEWSPAPER"], level: 4 }
+                        ]
+                    },
+                    {
+                        id: 3,
+                        groups: [
+                            { title: "WRITING INSTRUMENTS", items: ["PEN", "PENCIL", "QUILL", "STYLUS"], level: 1 },
+                            { title: "UNIT OF STORAGE", items: ["BIT", "BYTE", "MEGA", "TERA"], level: 2 },
+                            { title: "HOMOPHONES", items: ["WRITE", "RIGHT", "RITE", "WRIGHT"], level: 3 },
+                            { title: "___ PAD", items: ["LILY", "LAUNCH", "NOTE", "MOUSE"], level: 4 }
+                        ]
+                    }
+                ];
+            }
+        }
+
+
+        function loadRandomPuzzle() {
+            const randomIndex = Math.floor(Math.random() * PUZZLES.length);
+            const puzzleData = PUZZLES[randomIndex];
+
+            currentPuzzle = JSON.parse(JSON.stringify(puzzleData));
+
+            activeCards = [];
+            currentPuzzle.groups.forEach((group, gIndex) => {
+                group.items.forEach(word => {
+                    activeCards.push({ word: word, groupIndex: gIndex });
+                });
+            });
+
+            shuffleArray(activeCards);
+
+            selectedIndices = [];
+            solvedGroups = [];
+            mistakesLeft = 4;
+            isGameOver = false;
+        }
+
+        function startNewGame() {
+            loadRandomPuzzle();
+            document.getElementById('message-bar').innerText = window.t ? window.t('bindings.msg.instructions') : "Create four groups of four!";
+            document.getElementById('grid-area').style.display = '';
+            renderGame();
+        }
+
+        // --- RENDER ---
+        function renderGame() {
+            const solvedArea = document.getElementById('solved-area');
+            solvedArea.innerHTML = '';
+            solvedGroups.forEach(group => {
+                const row = document.createElement('div');
+                row.className = `solved-row level-${group.level}`;
+                row.innerHTML = `
+                    <div class="solved-title">${group.title}</div>
+                    <div class="solved-items">${group.items.join(", ")}</div>
+                `;
+                solvedArea.appendChild(row);
+            });
+
+            const gridArea = document.getElementById('grid-area');
+            gridArea.innerHTML = '';
+
+            activeCards.forEach((card, index) => {
+                const el = document.createElement('div');
+                el.className = 'card';
+                if (selectedIndices.includes(index)) el.classList.add('selected');
+                el.innerText = card.word;
+                el.onclick = () => toggleCard(index);
+                gridArea.appendChild(el);
+            });
+
+            document.getElementById('submit-btn').disabled = (selectedIndices.length !== 4 || isGameOver);
+            renderMistakes();
+
+            if (solvedGroups.length === 4 && mistakesLeft > 0) {
+                const perfectTxt = window.t ? window.t('bindings.msg.perfect') : "Perfect! You bound them all.";
+                document.getElementById('message-bar').innerText = perfectTxt;
+                document.getElementById('grid-area').style.display = 'none';
+            } else if (mistakesLeft === 0) {
+                const gameOverTxt = window.t ? window.t('bindings.msg.game_over') : "Out of mistakes. Next time!";
+                document.getElementById('message-bar').innerText = gameOverTxt;
+                document.getElementById('grid-area').style.display = 'none';
+            }
+        }
+
+        function renderMistakes() {
+            const container = document.getElementById('mistakes-visual');
+            container.innerHTML = '';
+            for (let i = 0; i < mistakesLeft; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'mistake-dot';
+                container.appendChild(dot);
+            }
+        }
+
+        // --- LOGIC ---
+        function toggleCard(index) {
+            if (isGameOver) return;
+
+            if (selectedIndices.includes(index)) {
+                selectedIndices = selectedIndices.filter(i => i !== index);
+            } else {
+                if (selectedIndices.length < 4) {
+                    selectedIndices.push(index);
+                }
+            }
+            renderGame();
+        }
+
+        function deselectAll() {
+            if (isGameOver) return;
+            selectedIndices = [];
+            renderGame();
+        }
+
+        function shuffle() {
+            if (isGameOver) return;
+            const selectedWords = selectedIndices.map(i => activeCards[i].word);
+            shuffleArray(activeCards);
+
+            selectedIndices = [];
+            activeCards.forEach((card, idx) => {
+                if (selectedWords.includes(card.word)) selectedIndices.push(idx);
+            });
+
+            renderGame();
+        }
+
+        function submitGuess() {
+            if (selectedIndices.length !== 4) return;
+
+            const selectedCards = selectedIndices.map(i => activeCards[i]);
+
+            const firstGroup = selectedCards[0].groupIndex;
+            const allSame = selectedCards.every(c => c.groupIndex === firstGroup);
+
+            if (allSame) {
+                const group = currentPuzzle.groups[firstGroup];
+                solvedGroups.push(group);
+                activeCards = activeCards.filter(c => c.groupIndex !== firstGroup);
+                selectedIndices = [];
+                const correctTxt = window.t ? window.t('bindings.msg.correct') : "Correct!";
+                document.getElementById('message-bar').innerText = correctTxt;
+                shuffleArray(activeCards); // shuffle remaining cards automatically
+            } else {
+                mistakesLeft--;
+                const incorrectTxt = window.t ? window.t('bindings.msg.incorrect') : "Incorrect...";
+                document.getElementById('message-bar').innerText = incorrectTxt;
+
+                const counts = {};
+                selectedCards.forEach(c => {
+                    counts[c.groupIndex] = (counts[c.groupIndex] || 0) + 1;
+                });
+                if (Object.values(counts).includes(3)) {
+                    const oneAwayTxt = window.t ? window.t('bindings.msg.one_away') : "One away...";
+                    document.getElementById('message-bar').innerText = oneAwayTxt;
+                }
+
+                if (mistakesLeft === 0) {
+                    isGameOver = true;
+                    // Auto-solve the remaining groups
+                    const solvedIndices = solvedGroups.map(g => currentPuzzle.groups.indexOf(g));
+                    currentPuzzle.groups.forEach((group, index) => {
+                        if (!solvedIndices.includes(index)) {
+                            solvedGroups.push(group);
+                        }
+                    });
+                    activeCards = []; // Clear the grid
+                }
+            }
+
+            renderGame();
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+    </script>
+
+    <script>
+
+
+
+
+    </script>
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675"
+        data-utcoffset="11"></script>
+
+
+</body>
+
+</html>

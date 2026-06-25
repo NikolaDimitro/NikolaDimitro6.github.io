@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <script src="js/anti-tamper.js"></script>
+    <title data-i18n="login.title">Login / Register</title>
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Firebase Compat (no RTDB on this page to avoid Safari extension / polling errors) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-functions-compat.js" defer></script>
+
+    <script src="time.js" defer></script>
+    <script src="icons.js?v=2" defer></script>
+    <script src="theme.js?v=18" defer></script>
+    <script src="bad_words.js?v=4" defer></script>
+    <script src="js/i18n.js" defer></script>
+    <script src="js/ip-ban.js" defer></script>
+
+    <style>
+        /* Global animation kill switch for E-ink */
+        *,
+        *::before,
+        *::after {
+            transition: none !important;
+            animation: none !important;
+        }
+
+        :root {
+            --stripe-pattern: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+            --shadow: 4px 4px 0px #000000;
+        }
+
+        body {
+            background-color: #e5e5e5;
+            background-image: repeating-linear-gradient(45deg, #e5e5e5 25%, transparent 25%, transparent 75%, #e5e5e5 75%, #e5e5e5), repeating-linear-gradient(45deg, #e5e5e5 25%, white 25%, white 75%, #e5e5e5 75%, #e5e5e5);
+            background-position: 0 0, 2px 2px;
+            background-size: 4px 4px;
+            font-family: "Geneva", "Verdana", sans-serif;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            width: 95%;
+            max-width: 600px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: var(--stripe-pattern);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            z-index: 1;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            box-shadow: 2px 2px 0 black;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+            text-decoration: none;
+            color: black;
+        }
+
+        .window-content {
+            padding: 15px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .state-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            border: 1px solid #ccc;
+            padding: 6px 8px;
+            background: #f8f8f8;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 4px;
+            margin-top: 10px;
+        }
+
+        input {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            font-size: 16px;
+            border: 2px solid #000;
+            box-sizing: border-box;
+            border-radius: 0;
+            font-family: inherit;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .button-row > * + * {
+            margin-left: 10px;
+        }
+
+        button {
+            padding: 10px 18px;
+            font-size: 16px;
+            border: 2px solid #000;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-family: inherit;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        button:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+            background: black;
+            color: white;
+        }
+
+        button.secondary {
+            background: #ddd;
+        }
+
+        #log {
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            padding: 5px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            min-height: 160px;
+            max-height: 220px;
+            overflow-y: auto;
+            font-family: "Courier New", monospace;
+            font-size: 0.85rem;
+        }
+
+        .log-line {
+            border-bottom: 1px solid #e0e0e0;
+            padding: 2px 0;
+        }
+
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        .success { color: green; }
+        .warn { color: orange; }
+
+        .hint {
+            font-size: 0.8rem;
+            color: #555;
+            margin-top: 8px;
+            line-height: 1.3;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-box {
+            background: white;
+            border: 2px solid black;
+            box-shadow: 8px 8px 0 black;
+            padding: 25px;
+            width: 300px;
+            max-width: 90%;
+            text-align: center;
+        }
+
+        .modal-box h3 {
+            margin-top: 0;
+            border-bottom: 2px solid black;
+            padding-bottom: 10px;
+        }
+
+        /* Noscript */
+        noscript .modal-overlay {
+            display: flex !important;
+        }
+
+        @media (max-width: 520px) {
+            .window {
+                width: 100%;
+                height: 100%;
+                max-height: none;
+                border: none;
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <noscript>
+        <div class="modal-overlay">
+            <div class="modal-box">
+                <h3>JavaScript Required</h3>
+                <p>This page requires JavaScript to function.</p>
+            </div>
+        </div>
+    </noscript>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <a href="index" class="close-box">X</a>
+            <span class="title-text" data-i18n="login.title">Login / Register</span>
+        </div>
+
+        <div class="window-content">
+            <div class="state-row">
+                <span id="auth-state" data-i18n="login.state.loading">Auth: Loading...</span>
+                <span id="network-state" data-i18n="login.net.checking">Net: Checking...</span>
+            </div>
+
+            <label for="username" data-i18n="login.label.username">Username / Email:</label>
+            <input type="text" id="username" autocapitalize="none" autocorrect="off" autocomplete="off"
+                data-i18n-placeholder="login.placeholder.username" placeholder="Username">
+
+            <label for="password" data-i18n="login.label.password">Password:</label>
+            <input type="password" id="password" autocomplete="off">
+
+            <div class="button-row">
+                <button onclick="doLogin()" data-i18n="login.btn.login">Login</button>
+                <button onclick="doRegister()" data-i18n="login.btn.register">Register</button>
+                <button onclick="doLogout()" class="secondary" data-i18n="login.btn.logout">Logout</button>
+            </div>
+
+            <div class="button-row">
+                <button onclick="runDiagnostics()" class="secondary" data-i18n="login.btn.diagnostics">Run Diagnostics</button>
+                <button onclick="clearLog()" class="secondary" data-i18n="login.btn.clear_log">Clear Log</button>
+                <button onclick="location.href='index'" class="secondary" data-i18n="login.btn.home">Home</button>
+            </div>
+
+            <p class="hint" data-i18n="login.hint">
+                Enter your username and password. Usernames are automatically suffixed with @rekindle.ink.
+            </p>
+
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal (alert() is unsupported on Kindle) -->
+    <div id="alert-modal" class="modal-overlay" onclick="closeAlertModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h3 id="alert-title" data-i18n="login.alert.title">Notice</h3>
+            <p id="alert-msg" style="margin: 16px 0; line-height: 1.4;"></p>
+            <button onclick="closeAlertModal()" data-i18n="login.alert.ok">OK</button>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        'use strict';
+
+        var logElem = document.getElementById('log');
+        var auth;
+        var isFirebaseAvailable = false;
+
+        function log(msg, type) {
+            var div = document.createElement('div');
+            div.className = 'log-line ' + (type || '');
+            var d = new Date();
+            var zd = (typeof rekindleGetZonedDate === 'function') ? rekindleGetZonedDate(d) : d;
+            var h = zd.getHours() % 12 || 12;
+            var m = String(zd.getMinutes()).padStart(2, '0');
+            var ampm = zd.getHours() >= 12 ? 'PM' : 'AM';
+            var time = h + ':' + m + ' ' + ampm;
+            div.innerText = '[' + time + '] ' + msg;
+            if (logElem.firstChild) {
+                logElem.insertBefore(div, logElem.firstChild);
+            } else {
+                logElem.appendChild(div);
+            }
+            if (type === 'error' && console.error) console.error(msg);
+            else if (console.log) console.log(msg);
+        }
+
+        function clearLog() {
+            logElem.innerHTML = '';
+            log("Log cleared.");
+        }
+
+        window.onerror = function (msg, url, line) {
+            log("GLOBAL ERROR: " + msg + " (" + (url || '') + ":" + (line || '') + ")", "error");
+            return false;
+        };
+
+        log("Logging started.");
+        log("UA: " + navigator.userAgent);
+        log("Screen: " + window.innerWidth + "x" + window.innerHeight);
+
+        function showAlertModal(message, title) {
+            document.getElementById('alert-msg').innerText = message || '';
+            document.getElementById('alert-title').innerText = title || (window.t ? window.t('login.alert.title', 'Notice') : 'Notice');
+            document.getElementById('alert-modal').style.display = 'flex';
+        }
+        window.showAlertModal = showAlertModal;
+
+        function closeAlertModal() {
+            document.getElementById('alert-modal').style.display = 'none';
+        }
+        window.closeAlertModal = closeAlertModal;
+
+        // --- FIREBASE CONFIG ---
+        var firebaseConfig = {
+            apiKey: "AIzaSyDY7x7vVmlYUyVZNLuCCmIQYa6PWFVfZqQ",
+            authDomain: "rekindle-dd1fa.firebaseapp.com",
+            projectId: "rekindle-dd1fa",
+            storageBucket: "rekindle-dd1fa.firebasestorage.app",
+            messagingSenderId: "748026882518",
+            appId: "1:748026882518:web:6877dd4329318070c11c77"
+        };
+
+        function initFirebase() {
+            if (typeof firebase === 'undefined') {
+                log("CRITICAL: Firebase SDK not found.", "error");
+                setNetworkState(false);
+                return;
+            }
+            try {
+                log("Initializing Firebase...", "info");
+                if (firebase.setLogLevel) {
+                    firebase.setLogLevel('warn');
+                }
+                firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                isFirebaseAvailable = true;
+                log("Firebase initialized.", "success");
+
+                auth.onAuthStateChanged(function (user) {
+                    if (user) {
+                        document.getElementById('auth-state').innerText = (window.t ? window.t('login.state.signed_in', 'Auth: Signed In') : 'Auth: Signed In') + ' (' + user.email + ')';
+                        log("User signed in: " + user.uid, "success");
+                        user.getIdTokenResult().then(function (t) {
+                            log("Token expires: " + t.expirationTime, "info");
+                        }).catch(function (e) {
+                            log("Token details failed: " + e.message, "warn");
+                        });
+                    } else {
+                        document.getElementById('auth-state').innerText = window.t ? window.t('login.state.signed_out', 'Auth: Signed Out') : 'Auth: Signed Out';
+                        log("User signed out.", "info");
+                    }
+                });
+            } catch (e) {
+                log("Firebase init error: " + e.message, "error");
+                setNetworkState(false);
+            }
+        }
+
+        function setNetworkState(ok) {
+            var el = document.getElementById('network-state');
+            if (ok) {
+                el.innerText = window.t ? window.t('login.net.online', 'Net: Online') : 'Net: Online';
+                el.style.color = 'green';
+            } else {
+                el.innerText = window.t ? window.t('login.net.offline', 'Net: Offline / CORS') : 'Net: Offline / CORS';
+                el.style.color = 'red';
+            }
+        }
+
+        // --- DIAGNOSTICS ---
+        function runDiagnostics() {
+            log("--- RUNNING DIAGNOSTICS ---", "info");
+
+            var now = new Date();
+            log("System Time: " + now.toString(), "info");
+            log("Timezone Offset: " + now.getTimezoneOffset(), "info");
+
+            var onLine = navigator.onLine;
+            log("Navigator.onLine: " + onLine, onLine ? "success" : "warn");
+
+            try {
+                localStorage.setItem('test_key', 'test_val');
+                var val = localStorage.getItem('test_key');
+                localStorage.removeItem('test_key');
+                if (val === 'test_val') log("LocalStorage: OK", "success");
+                else log("LocalStorage: FAILED (read mismatch)", "error");
+            } catch (e) {
+                log("LocalStorage: BLOCKED (" + e.message + ")", "error");
+            }
+
+            try {
+                sessionStorage.setItem('test_key', 'test_val');
+                sessionStorage.removeItem('test_key');
+                log("SessionStorage: OK", "success");
+            } catch (e) {
+                log("SessionStorage: BLOCKED (" + e.message + ")", "warn");
+            }
+
+            log("Cookies Enabled: " + navigator.cookieEnabled, navigator.cookieEnabled ? "success" : "warn");
+
+            var idb = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+            log("IndexedDB Available: " + (!!idb), idb ? "success" : "error");
+
+            log("Pinging server...", "info");
+            fetch(window.location.href, { method: 'HEAD', cache: 'no-cache' })
+                .then(function (res) {
+                    if (res.ok) {
+                        log("Server Ping: SUCCESS", "success");
+                        setNetworkState(true);
+                    } else {
+                        log("Server Ping: FAILED (status " + res.status + ")", "error");
+                        setNetworkState(false);
+                    }
+                })
+                .catch(function (e) {
+                    log("Server Ping: FAILED (" + e.message + ")", "error");
+                    setNetworkState(false);
+                });
+        }
+        window.runDiagnostics = runDiagnostics;
+
+        // --- LOGIN / REGISTER ---
+        function getEmailInput() {
+            var val = document.getElementById('username').value.trim();
+            if (val.indexOf('@') === -1) {
+                val += "@rekindle.ink";
+            }
+            return val;
+        }
+
+        async function doLogin() {
+            if (!isFirebaseAvailable || !auth) {
+                showAlertModal(window.t ? window.t('login.error.offline', 'Firebase is not available. Please wait or refresh.') : 'Firebase is not available. Please wait or refresh.');
+                return;
+            }
+            var email = getEmailInput();
+            var password = document.getElementById('password').value;
+            if (!email || !password) {
+                showAlertModal(window.t ? window.t('login.error.missing_credentials', 'Please enter username and password.') : 'Please enter username and password.');
+                return;
+            }
+
+            log("Attempting sign in for: " + email + "...", "info");
+            try {
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                var userCredential = await auth.signInWithEmailAndPassword(email, password);
+                log("Sign in success: " + userCredential.user.email, "success");
+
+                var ipResult = await RekindleIpBan.checkOnLogin();
+                if (ipResult.banned) {
+                    await auth.signOut();
+                    log("Sign in blocked: IP banned.", "error");
+                    showAlertModal(window.t ? window.t('login.error.ip_banned', 'Your IP address has been banned from this network.') : 'Your IP address has been banned from this network.');
+                }
+            } catch (error) {
+                log("Sign in error: " + error.code + " - " + error.message, "error");
+                var msg = error.message || "Login failed.";
+                if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                    msg = window.t ? window.t('login.error.invalid_credentials', 'Invalid username or password.') : 'Invalid username or password.';
+                } else if (error.code === 'auth/network-request-failed') {
+                    msg = window.t ? window.t('login.error.network', 'Network request failed. Check system clock and connection.') : 'Network request failed. Check system clock and connection.';
+                }
+                showAlertModal(msg);
+            }
+        }
+        window.doLogin = doLogin;
+
+        function isForbiddenUsername(u) {
+            var forbidden = ["root", "system", "admin", "administrator", "mod", "moderator", "support", "ukiyo", "rekindle", "wantban"];
+            var lowerU = u.toLowerCase();
+            return forbidden.some(function (word) { return lowerU.indexOf(word) !== -1; });
+        }
+
+        function isBadWord(u) {
+            if (!window.filterBadWords) return false;
+            return window.filterBadWords(u) !== u;
+        }
+
+        async function doRegister() {
+            if (!isFirebaseAvailable || !auth) {
+                showAlertModal(window.t ? window.t('login.error.offline', 'Firebase is not available. Please wait or refresh.') : 'Firebase is not available. Please wait or refresh.');
+                return;
+            }
+            var u = document.getElementById('username').value.trim();
+            var p = document.getElementById('password').value;
+            if (!u || !p) {
+                showAlertModal(window.t ? window.t('login.error.missing_credentials', 'Please enter username and password.') : 'Please enter username and password.');
+                return;
+            }
+            if (u.length > 20) {
+                showAlertModal(window.t ? window.t('login.error.username_long', 'Username must be 20 characters or less.') : 'Username must be 20 characters or less.');
+                return;
+            }
+            if (!/^[a-zA-Z0-9]+$/.test(u)) {
+                showAlertModal(window.t ? window.t('login.error.username_invalid', 'Username can only contain letters and numbers.') : 'Username can only contain letters and numbers.');
+                return;
+            }
+            if (u.indexOf('@') !== -1) {
+                showAlertModal(window.t ? window.t('login.error.username_no_email', 'Please enter a username only, not an email.') : 'Please enter a username only, not an email.');
+                return;
+            }
+            if (isForbiddenUsername(u)) {
+                showAlertModal(window.t ? window.t('login.error.username_forbidden', 'Forbidden username.') : 'Forbidden username.');
+                return;
+            }
+            if (isBadWord(u)) {
+                showAlertModal(window.t ? window.t('login.error.username_bad_word', 'Username contains inappropriate language.') : 'Username contains inappropriate language.');
+                return;
+            }
+
+            log("Registering: " + u + "...", "info");
+            try {
+                var registerUser = firebase.functions().httpsCallable('registerUser');
+                var result = await registerUser({ username: u, password: p });
+                await auth.signInWithCustomToken(result.data.customToken);
+                log("Registration success.", "success");
+            } catch (e) {
+                var msg = e.message || "Registration failed.";
+                if (msg.indexOf("Please log in with your username and password.") !== -1) {
+                    try {
+                        await auth.signInWithEmailAndPassword(u + "@rekindle.ink", p);
+                        log("Signed in with existing account.", "success");
+                        return;
+                    } catch (loginErr) {
+                        msg = loginErr.message || "Sign-in failed.";
+                    }
+                }
+                log("Registration error: " + msg, "error");
+                showAlertModal(msg);
+            }
+        }
+        window.doRegister = doRegister;
+
+        function doLogout() {
+            if (auth) {
+                log("Signing out...", "info");
+                auth.signOut().then(function () {
+                    log("Sign out resolved.", "success");
+                }).catch(function (e) {
+                    log("Sign out error: " + e.message, "error");
+                });
+            }
+        }
+        window.doLogout = doLogout;
+
+        // --- INIT ---
+        // Wait for window.load so all deferred scripts (Firebase, time.js, etc.) are ready.
+        function onPageReady() {
+            initFirebase();
+            setTimeout(runDiagnostics, 1000);
+        }
+        if (document.readyState === 'complete') {
+            onPageReady();
+        } else {
+            window.addEventListener('load', onPageReady);
+        }
+
+        // Service worker registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('./sw.js').catch(function (err) {
+                    log("SW registration failed: " + err.message, "warn");
+                });
+            });
+        }
+
+        // Viewport lockdown for E-ink / Kindle
+        document.addEventListener('touchstart', function (event) {
+            if (event.touches.length > 1) event.preventDefault();
+        }, { passive: false });
+
+        var lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            var now = new Date().getTime();
+            var target = event.target;
+            var isEditable = target.isContentEditable ||
+                (['input', 'textarea', 'select'].indexOf(target.tagName.toLowerCase()) !== -1);
+            if (now - lastTouchEnd <= 300 && !isEditable) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+        // Allow Enter key to submit login
+        document.getElementById('password').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') doLogin();
+        });
+    })();
+    </script>
+</body>
+
+</html>

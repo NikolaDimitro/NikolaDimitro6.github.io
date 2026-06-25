@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+
+    <title>Interactive Reader</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js" integrity="sha384-MTDrIlFOzEqpmOxY6UIA/1Zkh0a64UlmJ6R0UrZXqXCPx99siPGi8EmtQjIeCcTH" crossorigin="anonymous"></script>
+
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js" integrity="sha384-+KqYOH8TSu3FKjN3ld86eZMYqq6lk+y2GjV1hyOW+1hT3Pk/aD8JFueZP1W3bPh1" crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js" integrity="sha384-6A4YFdmYPT5gmyRp8KegTqUol1Ff3navFf6eyVLErDtdSrikTwa1MQpVhFtubVlq" crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js" integrity="sha384-+OubPIxtsLCp2uUuSsvWDuBB9oSIEDIYt2qQfYki+vDmSxc6GQsBbBPH6Z6x5wrq" crossorigin="anonymous"></script>
+
+    <style>
+        /* SYSTEM 7 STYLE - Consistent with Reader */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+        }
+
+        html,
+        body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        body {
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            font-family: "Georgia", serif;
+            background-color: #e5e5e5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: 4px 4px 0px black;
+            display: flex;
+            flex-direction: column;
+            min-height: 95%;
+            /* Changed from 95vh for Kindle */
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+            margin: auto;
+            /* Fallback centering */
+        }
+
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            position: relative;
+            flex-shrink: 0;
+            font-family: "Helvetica Neue", sans-serif;
+        }
+
+        .title-text {
+            font-weight: bold;
+            background: white;
+            padding: 0 15px;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+            z-index: 0;
+        }
+
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 2px solid black;
+            background: #eee;
+            font-family: sans-serif;
+        }
+
+        .sys-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 4px 12px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-size: 0.85rem;
+        }
+
+        .sys-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* GAME AREA */
+        #game-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1.6;
+            font-size: 1.1rem;
+            max-width: 700px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }
+
+        .story-text {
+            margin-bottom: 30px;
+            width: 100%;
+        }
+
+        .story-text p {
+            margin-bottom: 1em;
+        }
+
+        .choices-area {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .choices-area>*+* {
+            margin-top: 15px;
+        }
+
+        .choice-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 15px;
+            font-family: inherit;
+            font-size: 1rem;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 3px 3px 0 #ccc;
+        }
+
+        .choice-btn:hover {
+            box-shadow: 5px 5px 0 #bbb;
+            transform: translate(-1px, -1px);
+        }
+
+        .choice-btn:active {
+            background: black;
+            color: white;
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        /* LIBRARY OVERLAY */
+        #library-overlay {
+            position: absolute;
+            top: 35px;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 35px);
+            background: white;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .lib-tabs {
+            display: flex;
+            border-bottom: 2px solid black;
+            background: #eee;
+        }
+
+        .lib-tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-right: 1px solid black;
+            font-weight: bold;
+            cursor: pointer;
+            background: #eee;
+        }
+
+        .lib-tab.active {
+            background: white;
+            border-bottom: 2px solid white;
+            margin-bottom: -2px;
+            z-index: 10;
+        }
+
+        .lib-view {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .game-item {
+            border: 2px solid black;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 3px 3px 0 #ccc;
+        }
+
+        .game-item>*+* {
+            margin-left: 15px;
+        }
+
+        .game-item:active {
+            background: black;
+            color: white;
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        .game-title {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .game-desc {
+            font-size: 0.9em;
+            color: #999;
+            margin-top: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
+
+        .game-cover {
+            width: 70px;
+            height: 70px;
+            object-fit: contain;
+            border-radius: 4px;
+            margin-right: 15px;
+            background: #000;
+        }
+
+        .resume-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 765px) {
+            .resume-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* SEARCH BAR */
+        .search-bar {
+            display: flex;
+            margin-bottom: 20px;
+        }
+
+        .search-bar>*+* {
+            margin-left: 10px;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 8px;
+            border: 2px solid black;
+            font-family: inherit;
+            font-size: 1rem;
+            box-sizing: border-box;
+            /* Fix margins */
+        }
+
+        /* LOADING */
+        #loading-indicator {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            z-index: 50;
+            display: none;
+        }
+
+        /* MODAL OVERLAY */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            border: 2px solid black;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 4px 4px 0 black;
+            max-width: 80%;
+            min-width: 250px;
+        }
+
+        .modal-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .modal-text {
+            margin-bottom: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+        }
+
+        .modal-buttons>*+* {
+            margin-left: 15px;
+        }
+
+        /* STAR RATING */
+        .star-rating {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        .star-rating .stars {
+            color: #000;
+            letter-spacing: 2px;
+        }
+
+        /* ADDED BUTTON STATE */
+        .sys-btn.added {
+            background: #ccc;
+            color: #666;
+            cursor: default;
+            box-shadow: none;
+        }
+
+        .sys-btn.added:active {
+            background: #ccc;
+            color: #666;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* STANDARD MODAL SYSTEM */
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            font-family: "Geneva", "Verdana", sans-serif;
+        }
+
+        .modal-box {
+            background: white;
+            border: 2px solid black;
+            padding: 20px;
+            box-shadow: 6px 6px 0 black;
+            max-width: 300px;
+            width: 80%;
+            text-align: center;
+        }
+
+        .modal-text {
+            margin-bottom: 20px;
+            font-weight: bold;
+            line-height: 1.4;
+            color: black;
+        }
+
+        .modal-btns {
+            display: flex;
+            justify-content: center;
+        }
+
+        .modal-btns>*+* {
+            margin-left: 10px;
+        }
+
+        .modal-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 6px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-family: inherit;
+        }
+
+        .modal-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+    </style>
+    <script src="theme.js?v=18"></script>
+    <script src="js/i18n.js"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="location.href='index'">X</div>
+            <span class="title-text" id="app-title" data-i18n="interactive.title">Interactive Reader</span>
+        </div>
+
+        <div class="toolbar">
+            <button class="sys-btn" onclick="showLibrary()" data-i18n="interactive.btn.library">Library</button>
+            <span id="game-status" style="font-size:0.9rem; font-weight:bold;">Example Game</span>
+            <button class="sys-btn" onclick="restartGame()" data-i18n="interactive.btn.restart">Restart</button>
+        </div>
+
+        <div id="game-container">
+            <div id="story-area" class="story-text">
+                <p data-i18n="interactive.welcome.title">Welcome to the Interactive Reader.</p>
+                <p data-i18n="interactive.welcome.desc">Select a game from the library to begin.</p>
+            </div>
+            <div id="choices-area" class="choices-area">
+                <button class="choice-btn" onclick="showLibrary()" data-i18n="interactive.btn.open_lib">Open
+                    Library</button>
+            </div>
+        </div>
+
+        <!-- LIBRARY OVERLAY -->
+        <div id="library-overlay">
+            <div class="lib-tabs">
+                <div id="tab-local" class="lib-tab active" onclick="setLibTab('local')"
+                    data-i18n="interactive.tab.local">My Library</div>
+                <div id="tab-search" class="lib-tab" onclick="setLibTab('search')" data-i18n="interactive.tab.search">
+                    Online Store</div>
+            </div>
+
+            <div id="view-local" class="lib-view">
+                <div style="margin-bottom:15px; text-align:right;">
+                    <button class="sys-btn" onclick="openUploadModal()" data-i18n="interactive.btn.upload">Upload
+                        Story</button>
+                </div>
+                <div id="local-list">
+                    <div style="text-align:center; padding:20px;">Loading library...</div>
+                </div>
+            </div>
+
+            <div id="view-search" class="lib-view" style="display:none;">
+                <div class="search-bar">
+                    <input type="text" id="search-input" placeholder="Search IFDB..." onkeypress="handleSearch(event)">
+                    <button class="sys-btn" onclick="searchIFDB()">Search</button>
+                    <button class="sys-btn" onclick="openUploadModal()" title="Upload a .z1-.z3 file"
+                        data-i18n="interactive.btn.upload">Upload</button>
+                </div>
+                <div id="search-results"></div>
+            </div>
+
+            <div id="loading-indicator">Loading...</div>
+
+
+        </div>
+
+        <!-- UPLOAD MODAL -->
+        <div id="upload-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-title" data-i18n="interactive.modal.upload.title">Upload Story</div>
+                <div class="modal-text" style="text-align:left;">
+                    <input type="text" id="upload-title" class="modal-input" placeholder="Story Title"
+                        data-i18n-placeholder="interactive.modal.upload.placeholder.title"
+                        style="width:100%; padding:8px; margin-bottom:10px; border:2px solid black;">
+                    <input type="text" id="upload-author" class="modal-input" placeholder="Author"
+                        data-i18n-placeholder="interactive.modal.upload.placeholder.author"
+                        style="width:100%; padding:8px; margin-bottom:10px; border:2px solid black;">
+                    <div id="upload-cover-container" style="display:none;">
+                        <input type="text" id="upload-cover" class="modal-input"
+                            placeholder="Cover Image URL (Optional)"
+                            style="width:100%; padding:8px; margin-bottom:10px; border:2px solid black;">
+                        <div style="font-size:0.8rem; margin-bottom:10px;">Cover art not found on IFDB. You can add one
+                            manually.</div>
+                    </div>
+                    <div style="font-size:0.8rem; margin-bottom:5px;">Select .z1, .z2, or .z3 file:</div>
+                    <input type="file" id="upload-file" accept=".z1,.z2,.z3" style="width:100%; margin-bottom:15px;">
+                    <div style="font-size:0.8rem; color:#666; margin-bottom:15px; font-style:italic;"
+                        data-i18n="interactive.modal.upload.note">
+                        Note: User uploads are automatically shared with the community.
+                    </div>
+                </div>
+                <div class="modal-buttons">
+                    <button class="sys-btn" onclick="closeUploadModal()">Cancel</button>
+                    <button class="sys-btn" onclick="startUpload()">Upload</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONFIRM MODAL -->
+        <div id="confirm-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div id="confirm-modal-title" class="modal-title" data-i18n="interactive.modal.confirm.title">Confirm
+                </div>
+                <div id="confirm-modal-text" class="modal-text" data-i18n="interactive.modal.confirm.text">Are you sure?
+                </div>
+                <div class="modal-buttons">
+                    <button class="sys-btn" onclick="closeConfirmModal()">Cancel</button>
+                    <button id="confirm-modal-btn" class="sys-btn" style="color:red;">Confirm</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- INFO MODAL -->
+        <div id="info-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-title" id="info-modal-title">Notice</div>
+                <div id="info-modal-text" class="modal-text"></div>
+                <div class="modal-buttons">
+                    <button class="sys-btn" onclick="closeInfoModal()">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBALS ---
+        let confirmCallback = null;
+
+        function showConfirmModal(title, text, onConfirm, btnColor = 'red', btnText = 'Confirm') {
+            document.getElementById('confirm-modal-title').innerText = title;
+            document.getElementById('confirm-modal-text').innerText = text;
+            confirmCallback = onConfirm;
+            document.getElementById('confirm-modal').style.display = 'flex';
+
+            // Setup confirm button
+            const btn = document.getElementById('confirm-modal-btn');
+            btn.style.color = btnColor;
+            btn.innerText = btnText;
+
+            btn.onclick = () => {
+                if (confirmCallback) confirmCallback();
+                closeConfirmModal();
+            };
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').style.display = 'none';
+            confirmCallback = null;
+        }
+
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY7x7vVmlYUyVZNLuCCmIQYa6PWFVfZqQ",
+            authDomain: "rekindle-dd1fa.firebaseapp.com",
+            projectId: "rekindle-dd1fa",
+            storageBucket: "rekindle-dd1fa.firebasestorage.app",
+            messagingSenderId: "748026882518",
+            appId: "1:748026882518:web:6877dd4329318070c11c77"
+        };
+        // --- CONFIGURATION ---
+        function showModal(msg, isConfirm = false, callback = null) {
+            const overlay = document.getElementById('modal-overlay');
+            const messageEl = document.getElementById('modal-message');
+            const btnsEl = document.getElementById('modal-btns');
+            messageEl.textContent = msg;
+            if (isConfirm) {
+                btnsEl.innerHTML = '<button class="modal-btn" id="modal-cancel">Cancel</button><button class="modal-btn" id="modal-ok">OK</button>';
+                document.getElementById('modal-cancel').onclick = () => { overlay.style.display = 'none'; if (callback) callback(false); };
+                document.getElementById('modal-ok').onclick = () => { overlay.style.display = 'none'; if (callback) callback(true); };
+            } else {
+                btnsEl.innerHTML = '<button class="modal-btn" onclick="hideModal()">OK</button>';
+            }
+            overlay.style.display = 'flex';
+        }
+        function hideModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+
+
+        // Note: Persistence disabled due to IndexedDB hangs on some browsers (Safari)
+
+
+        // db.enablePersistence({ synchronizeTabs: true }) ...
+        const auth = firebase.auth();
+
+        // --- CONFIG ---
+        // Story Server URL - Deploy the Cloudflare Worker and update this URL
+        const STORY_SERVER_URL = 'https://story.timjarnott.workers.dev';
+
+        // --- STATE ---
+        let currentGame = null;
+        let currentMeta = null; // Store meta for restarts
+        let currentUser = null;
+
+        let localLibrary = [];
+        let cloudLibrary = [];
+        let mergedLibrary = [];
+
+        let pendingDeleteId = null; // Track what to delete
+
+        // Search pagination state
+        let currentSearchQuery = '';
+        let currentSearchOffset = 0;
+        let isLoadingMore = false;
+        let hasMoreResults = true;
+        const RESULTS_PER_PAGE = 50;
+        let currentSearchDisplayedTuids = new Set();
+
+        // Blacklist - games that failed Z3 compatibility check
+        let blacklistedTuids = new Set();
+
+        // Kindle Detection (Logic removed, now always forced)
+        // const isKindle = ...
+
+        window.onload = async () => {
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            loadBlacklist(); // Load globally blacklisted games
+
+            // Setup Auth & Sync
+            auth.onAuthStateChanged(async user => {
+                // Load local library immediately so UI isn't blocked by network
+                loadLocalLibrary();
+
+                if (user) {
+                    currentUser = user;
+                    try {
+                        await syncLocalToCloud();
+                    } catch (e) {
+                        console.error("Sync failed", e);
+                    }
+                    setupCloudListener();
+                }
+            });
+
+            // Refresh library
+            loadLocalLibrary();
+
+            // Auto-restore last game if available
+            try {
+                const lastGameId = await localforage.getItem('interactive_last_game_id');
+                /* if (lastGameId) {
+                    // Optimization: Don't auto load for now to let user see library
+                } */
+            } catch (e) {
+                console.warn("Could not access localforage for last game:", e);
+                // Kindle sometimes has issues with localforage/IndexedDB
+            }
+        };
+
+
+        // --- BLACKLIST LOGIC ---
+        const BLACKLIST_CACHE_KEY = 'rekindle_blacklist_cache';
+        const BLACKLIST_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+        async function loadBlacklist() {
+            try {
+                const cached = sessionStorage.getItem(BLACKLIST_CACHE_KEY);
+                if (cached) {
+                    const { ids, ts } = JSON.parse(cached);
+                    if (Date.now() - ts < BLACKLIST_CACHE_TTL) {
+                        ids.forEach(id => blacklistedTuids.add(id));
+                        console.log(`Loaded ${blacklistedTuids.size} blacklisted games (cached)`);
+                        return;
+                    }
+                }
+                const snapshot = await db.collection('interactive_blacklist').get();
+                const ids = [];
+                snapshot.forEach(doc => { blacklistedTuids.add(doc.id); ids.push(doc.id); });
+                sessionStorage.setItem(BLACKLIST_CACHE_KEY, JSON.stringify({ ids, ts: Date.now() }));
+                console.log(`Loaded ${blacklistedTuids.size} blacklisted games`);
+            } catch (e) {
+                console.error('Failed to load blacklist:', e);
+            }
+        }
+
+        // --- SYNC & LIBRARY LOGIC ---
+
+        async function syncLocalToCloud() {
+            if (!currentUser) return;
+            const local = await localforage.getItem('interactive_library_index') || [];
+
+            const snapshot = await db.collection('users').doc(currentUser.uid).collection('interactive_games').get();
+            const cloudIds = new Set();
+            snapshot.forEach(doc => { cloudIds.add(doc.data().id); });
+
+            const batch = db.batch();
+            let ops = 0;
+
+            for (const game of local) {
+                if (!cloudIds.has(game.id)) {
+                    const newRef = db.collection('users').doc(currentUser.uid).collection('interactive_games').doc();
+                    batch.set(newRef, { ...game, added: firebase.firestore.FieldValue.serverTimestamp() });
+                    ops++;
+                }
+            }
+
+            if (ops > 0) {
+                try { await batch.commit(); console.log(`Synced ${ops} games.`); }
+                catch (e) { console.error("Sync error", e); }
+            }
+        }
+
+        async function setupCloudListener() {
+            // OPTIMIZATION: One-time fetch of 50 most recent games instead of live listener
+            db.collection('users').doc(currentUser.uid).collection('interactive_games')
+                .orderBy('updated', 'desc')
+                .limit(50)
+                .get()
+                .then(async snapshot => {
+                    cloudLibrary = [];
+                    snapshot.forEach(doc => {
+                        cloudLibrary.push({ ...doc.data(), docId: doc.id });
+                    });
+                    console.log("Interactive: Loaded " + cloudLibrary.length + " cloud games");
+                    renderMergedLibrary();
+                });
+        }
+
+        async function loadLocalLibrary() {
+            localLibrary = await localforage.getItem('interactive_library_index') || [];
+            renderMergedLibrary();
+        }
+
+        const processedBackfills = new Set();
+
+        async function renderMergedLibrary() {
+            // Unblock UI
+            document.getElementById('loading-indicator').style.display = 'none';
+
+            const list = document.getElementById('local-list');
+            list.innerHTML = '';
+
+            mergedLibrary = [];
+            const processedIds = new Set();
+
+            // Get Last Played Game ID
+            const lastGameId = await localforage.getItem('interactive_last_game_id');
+
+            // Merge Cloud
+            cloudLibrary.forEach(cg => {
+                mergedLibrary.push({ ...cg, source: 'cloud' });
+                processedIds.add(cg.id);
+            });
+
+            // Merge Local
+            localLibrary.forEach(lg => {
+                if (!processedIds.has(lg.id)) {
+                    mergedLibrary.push({ ...lg, source: 'local' });
+                }
+            });
+
+            if (mergedLibrary.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:40px; color:#666;">Library Empty.<br>Go to the store to find stories!</div>';
+                return;
+            }
+
+            // --- CHECK FOR MISSING RATINGS (Backfill) ---
+            mergedLibrary.forEach(game => {
+                // If rating missing, title exists, and not processed this session
+                if (game.starRating === undefined && game.title && !processedBackfills.has(game.title)) {
+                    processedBackfills.add(game.title);
+                    backfillGameRating(game);
+                }
+            });
+
+            // --- SORTING & SPLITTING ---
+            // 1. Get Recent Games History
+            let recentGames = await localforage.getItem('interactive_recent_games') || [];
+
+            // Legacy Migration (if recent is empty but lastGameId exists)
+            if (recentGames.length === 0 && lastGameId) {
+                const legcyGame = mergedLibrary.find(g => g.id === lastGameId);
+                if (legcyGame) {
+                    recentGames.push({
+                        id: lastGameId,
+                        timestamp: Date.now(),
+                        meta: legcyGame
+                    });
+                }
+            }
+
+            const resumeGames = [];
+            const resumeIds = new Set();
+
+            recentGames.forEach(rec => {
+                // If it's in library, use library data (fresher rating etc), else use history meta
+                const libMatch = mergedLibrary.find(g => g.id === rec.id);
+                const gameData = libMatch || rec.meta;
+
+                if (gameData) {
+                    resumeGames.push(gameData);
+                    resumeIds.add(gameData.id);
+                }
+            });
+
+            // 2. Filter others and Sort by Wilson Score (High to Low)
+            let otherGames = mergedLibrary.filter(g => !resumeIds.has(g.id));
+            otherGames.forEach(g => {
+                g.wilsonScore = calculateWilsonScore(g.starRating || 0, g.numRatings || 0);
+            });
+            otherGames.sort((a, b) => b.wilsonScore - a.wilsonScore);
+
+            // --- RENDER RESUME SECTION ---
+            if (resumeGames.length > 0) {
+                const resumeContainer = document.createElement('div');
+                resumeContainer.style.marginBottom = '30px';
+                resumeContainer.style.paddingBottom = '20px';
+                resumeContainer.style.borderBottom = '1px dashed #ccc';
+
+                const header = document.createElement('div');
+                header.innerText = "Resume Playing:";
+                header.style.fontWeight = 'bold';
+                header.style.marginBottom = '15px';
+                header.style.fontSize = '1.2rem';
+                resumeContainer.appendChild(header);
+
+                // Grid Wrapper
+                const grid = document.createElement('div');
+                grid.className = 'resume-grid';
+
+                resumeGames.forEach(g => {
+                    const el = document.createElement('div');
+                    el.className = 'game-item';
+                    renderGameItem(el, g, true, true); // keep isLarge=true
+                    grid.appendChild(el);
+                });
+
+                resumeContainer.appendChild(grid);
+                list.appendChild(resumeContainer);
+            }
+
+            // --- RENDER LIBRARY SECTION ---
+            if (otherGames.length > 0) {
+                if (resumeGames.length > 0) {
+                    const header = document.createElement('div');
+                    header.innerText = "My Library:";
+                    header.style.fontWeight = 'bold';
+                    header.style.marginBottom = '15px';
+                    header.style.marginTop = '10px';
+                    header.style.fontSize = '1.2rem';
+                    list.appendChild(header);
+                }
+                otherGames.forEach(game => {
+                    const el = document.createElement('div');
+                    el.className = 'game-item';
+                    renderGameItem(el, game, false);
+                    list.appendChild(el);
+                });
+            } else if (resumeGames.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:40px; color:#666;">Library Empty.<br>Go to the store to find stories!</div>';
+            }
+        }
+
+        async function backfillGameRating(game) {
+            // Find rating
+            const ratingData = await fetchIFDBRating(game.title);
+
+            if (ratingData) {
+                console.log("Backfilling rating for:", game.title, ratingData);
+
+                if (game.source === 'local') {
+                    // Update LocalForage
+                    let index = await localforage.getItem('interactive_library_index') || [];
+                    const itemIndex = index.findIndex(g => g.id === game.id);
+                    if (itemIndex > -1) {
+                        index[itemIndex] = { ...index[itemIndex], ...ratingData };
+                        await localforage.setItem('interactive_library_index', index);
+                        loadLocalLibrary(); // Refresh
+                    }
+                } else if (game.source === 'cloud' && currentUser) {
+                    // Update Firestore
+                    try {
+                        await db.collection('users').doc(currentUser.uid).collection('interactive_games').doc(game.id).update(ratingData);
+                    } catch (e) {
+                        console.warn("Failed to backfill cloud rating", e);
+                    }
+                    // Snapshot listener will refresh
+                }
+            }
+        }
+
+        function renderGameItem(el, game, isLarge, shouldResume = false) {
+            // Main Content Container (Image + Text)
+            // If resume: Text contains Buttons at bottom.
+            // If library: Buttons are separate sibling to InfoDiv.
+
+            const safeTitle = (game.title || 'Untitled').replace(/</g, "&lt;");
+            const safeAuthor = (game.author || 'Unknown').replace(/</g, "&lt;");
+            const coverArt = game.coverArtLink || "";
+
+            // Dimensions
+            const imgWidth = isLarge ? '100px' : '70px';
+            const imgHeight = isLarge ? '100px' : '70px';
+            const fontSize = isLarge ? '1.2rem' : '1rem';
+
+            // 1. Build Image Element
+            let imgEl;
+            if (coverArt) {
+                imgEl = document.createElement('img');
+                imgEl.src = coverArt;
+                imgEl.className = 'game-cover';
+                imgEl.style.width = imgWidth;
+                imgEl.style.height = imgHeight;
+                imgEl.alt = "Cover";
+                imgEl.onerror = function () { this.style.display = 'none'; }; // or replace with placeholder
+            } else {
+                imgEl = document.createElement('div');
+                imgEl.className = 'game-cover';
+                imgEl.innerText = "?";
+                imgEl.style.cssText = `width:${imgWidth}; height:${imgHeight}; display:flex; align-items:center; justify-content:center; color:#666; font-size:20px; background:#000;`;
+            }
+
+            // 2. Build Text Column
+            const textCol = document.createElement('div');
+            textCol.style.flexGrow = '1';
+            textCol.style.minWidth = '0';
+
+            const stars = generateStarRating(game.starRating, game.numRatings);
+
+            textCol.innerHTML = `
+                <div class="game-title" style="font-size:${fontSize}">${safeTitle}</div>
+                <div class="game-desc">${safeAuthor}</div>
+                ${stars}
+            `;
+
+            // 3. Build Controls
+            const controls = document.createElement('div');
+            controls.style.display = 'flex';
+            controls.style.gap = '10px';
+            controls.style.alignItems = 'center';
+
+            // Play/Resume Button
+            const btn = document.createElement('button');
+            btn.className = 'sys-btn';
+            btn.innerText = shouldResume ? 'Resume' : 'Play';
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                loadGame(game, !shouldResume);
+            };
+            controls.appendChild(btn);
+
+            // Delete Button
+            const delBtn = document.createElement('button');
+            delBtn.className = 'sys-btn';
+            delBtn.innerText = 'X';
+            delBtn.style.color = 'red';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (shouldResume) {
+                    clearGameProgress(game);
+                } else {
+                    promptDelete(game);
+                }
+            };
+            controls.appendChild(delBtn);
+
+            // 4. Assemble Layout
+            if (shouldResume) {
+                // Stacked Layout: Image | (Text \n Buttons)
+                controls.style.marginTop = '10px';
+                controls.style.justifyContent = 'flex-end';
+                textCol.appendChild(controls);
+
+                const wrapper = document.createElement('div');
+                wrapper.style.display = 'flex'; // Row: Img + Text
+                wrapper.style.alignItems = 'flex-start'; // Align top? or center
+                wrapper.style.width = '100%';
+
+                wrapper.appendChild(imgEl);
+                wrapper.appendChild(textCol);
+
+                // Click handler on wrapper
+                wrapper.onclick = () => loadGame(game, !shouldResume);
+                el.appendChild(wrapper);
+
+            } else {
+                // Standard Library Layout: (Image | Text)   [Buttons]
+                const infoDiv = document.createElement('div');
+                infoDiv.style.flexGrow = '1';
+                infoDiv.style.display = 'flex';
+                infoDiv.style.alignItems = 'center';
+
+                infoDiv.appendChild(imgEl);
+                infoDiv.appendChild(textCol);
+
+                infoDiv.onclick = () => loadGame(game, !shouldResume);
+
+                el.appendChild(infoDiv);
+                el.appendChild(controls);
+            }
+        }
+
+        async function addToLibrary(gameMeta, buttonElement) {
+            // Show loading state on button
+            if (buttonElement) {
+                buttonElement.innerText = 'Adding...';
+                buttonElement.disabled = true;
+            }
+
+            try {
+                // Proxy Fallback Helper
+                const fetchProxy = async (targetUrl) => {
+                    const proxies = [
+                        (url) => `/api/proxy?url=${encodeURIComponent(url)}`
+                    ];
+                    for (const proxy of proxies) {
+                        try {
+                            const res = await fetch(proxy(targetUrl));
+                            if (res.ok) return res;
+                        } catch (e) { }
+                    }
+                    throw new Error("All proxies failed");
+                };
+
+                const viewGameUrl = `https://ifdb.org/viewgame?json&id=${gameMeta.id}`;
+                const res = await fetchProxy(viewGameUrl);
+                const gameDetails = await res.json();
+
+                let storyFileUrl = null;
+                let storyFormat = null;
+
+                // We DO NOT check for playOnlineUrl anymore.
+                // Strict Z-code (Z1-Z3) enforcement.
+
+                // Find downloadable story file
+                // Prioritize Z3 > Z2 > Z1 files for JSZM compatibility
+                let allZCodeFiles = []; // Collect all Z-code download options
+                let zipFiles = []; // Collect zip files to check if no direct Z3 found
+
+                if (gameDetails.ifdb && gameDetails.ifdb.downloads && gameDetails.ifdb.downloads.links) {
+                    for (const link of gameDetails.ifdb.downloads.links) {
+                        // Collect files
+                        if (link.isGame && link.url) {
+                            const url = link.url.toLowerCase();
+                            const format = (link.format || '').toLowerCase();
+
+                            // Check for zip files
+                            if (url.endsWith('.zip')) {
+                                zipFiles.push(link.url);
+                            }
+
+                            // Detect Z-code version from file extension
+                            let zVersion = 0;
+                            if (url.endsWith('.z1')) zVersion = 1;
+                            else if (url.endsWith('.z2')) zVersion = 2;
+                            else if (url.endsWith('.z3')) zVersion = 3;
+
+                            else if (url.endsWith('.z4')) zVersion = 4;
+                            else if (url.endsWith('.z5')) zVersion = 5;
+                            else if (url.endsWith('.z6')) zVersion = 6;
+                            else if (url.endsWith('.z7')) zVersion = 7;
+                            else if (url.endsWith('.z8')) zVersion = 8;
+                            else if (format.includes('zcode') || format.includes('z-machine')) zVersion = 5; // Assume z5 if no extension
+
+                            // We are only looking for direct downloads of compatible files here
+                            if (zVersion > 0 && zVersion <= 3 && !url.endsWith('.zblorb')) {
+                                allZCodeFiles.push({
+                                    url: link.url, // Keep original casing
+                                    format: format || 'z-code',
+                                    zVersion: zVersion
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Prioritize Z3 > Z2 > Z1 from DIRECT links
+                let preferredFile = null;
+                for (const file of allZCodeFiles) {
+                    if (file.zVersion === 3) { preferredFile = file; break; }
+                }
+                if (!preferredFile) {
+                    for (const file of allZCodeFiles) {
+                        if (file.zVersion === 2) { preferredFile = file; break; }
+                    }
+                }
+                if (!preferredFile) {
+                    for (const file of allZCodeFiles) {
+                        if (file.zVersion === 1) { preferredFile = file; break; }
+                    }
+                }
+
+                // If no Z1-Z3 found directly, try searching inside zip files using unbox.ifarchive.org
+                if (!preferredFile && zipFiles.length > 0) {
+                    if (buttonElement) buttonElement.innerText = 'Checking zips...';
+
+                    for (const zipUrl of zipFiles) {
+                        try {
+                            // Construct unbox URL
+                            // Format: https://unbox.ifarchive.org/?url=[ENCODED_ZIP_URL]
+                            const unboxUrl = `https://unbox.ifarchive.org/?url=${encodeURIComponent(zipUrl)}`;
+                            const unboxRes = await fetch(proxyUrl + encodeURIComponent(unboxUrl));
+
+                            if (!unboxRes.ok) continue;
+
+                            const unboxHtml = await unboxRes.text();
+
+                            // Parse HTML
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(unboxHtml, 'text/html');
+                            // Unbox lists files as <a href="path/to/file">
+                            const links = Array.from(doc.querySelectorAll('a'));
+
+                            let z3Link = null;
+                            let z2Link = null;
+                            let z1Link = null;
+
+                            for (const a of links) {
+                                const href = a.getAttribute('href');
+                                if (!href) continue;
+
+                                const lowerHref = href.toLowerCase();
+                                // Avoid parent directory links or absolute external links if possible, 
+                                // though unbox usually only links to content.
+
+                                if (lowerHref.endsWith('.z3')) z3Link = href;
+                                if (lowerHref.endsWith('.z2')) z2Link = href;
+                                if (lowerHref.endsWith('.z1')) z1Link = href;
+                            }
+
+                            let bestLink = z3Link || z2Link || z1Link;
+
+                            if (bestLink) {
+                                // Resolve the URL against the unboxUrl
+                                // This handles relative paths correctly
+                                const resolvedUrl = new URL(bestLink, unboxUrl).href;
+
+                                let zVersion = 0;
+                                if (resolvedUrl.toLowerCase().endsWith('.z3')) zVersion = 3;
+                                else if (resolvedUrl.toLowerCase().endsWith('.z2')) zVersion = 2;
+                                else if (resolvedUrl.toLowerCase().endsWith('.z1')) zVersion = 1;
+
+                                preferredFile = {
+                                    url: resolvedUrl,
+                                    format: 'z-code',
+                                    zVersion: zVersion,
+                                    fromUnbox: true
+                                };
+                                break; // Found a good file in this zip
+                            }
+
+                        } catch (e) {
+                            console.warn('Failed to check unbox for zip:', zipUrl, e);
+                        }
+                    }
+                }
+
+                if (preferredFile && preferredFile.url) {
+                    storyFileUrl = preferredFile.url;
+                    storyFormat = preferredFile.format;
+                }
+
+                // --- ITCH.IO SCRAPING FALLBACK ---
+                // If we haven't found a file yet, but we saw an Itch.io link, try to scrape it.
+                let itchPageUrl = null;
+                if (gameDetails.ifdb && gameDetails.ifdb.downloads && gameDetails.ifdb.downloads.links) {
+                    for (const link of gameDetails.ifdb.downloads.links) {
+                        if (link.url && (new URL(link.url).hostname === 'itch.io' || new URL(link.url).hostname.endsWith('.itch.io'))) {
+                            itchPageUrl = link.url;
+                            break;
+                        }
+                    }
+                }
+
+                if (!storyFileUrl && itchPageUrl) {
+                    if (buttonElement) buttonElement.innerText = 'Checking Itch.io...';
+
+                    try {
+                        const itchRes = await fetch(proxyUrl + encodeURIComponent(itchPageUrl));
+                        if (itchRes.ok) {
+                            const itchHtml = await itchRes.text();
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(itchHtml, 'text/html');
+
+                            // 1. Get CSRF Token
+                            const csrfMeta = doc.querySelector('meta[name="csrf_token"]');
+                            const csrfToken = csrfMeta ? csrfMeta.getAttribute('value') : null;
+
+                            // 2. Find Upload ID for Z-code (Z3 > Z2 > Z1)
+                            // Structure: .upload_list_widget .upload .upload_name strong.name (text contains .z3)
+                            // Sibling/Parent has .download_btn with data-upload_id
+
+                            const names = Array.from(doc.querySelectorAll('.upload_name .name'));
+                            let targetExtension = null;
+                            let targetNameEl = names.find(el => el.textContent.toLowerCase().endsWith('.z3'));
+                            if (targetNameEl) targetExtension = 'z3';
+
+                            if (!targetNameEl) {
+                                targetNameEl = names.find(el => el.textContent.toLowerCase().endsWith('.z2'));
+                                if (targetNameEl) targetExtension = 'z2';
+                            }
+                            if (!targetNameEl) {
+                                targetNameEl = names.find(el => el.textContent.toLowerCase().endsWith('.z1'));
+                                if (targetNameEl) targetExtension = 'z1';
+                            }
+
+                            let selectedUploadId = null;
+                            if (targetNameEl) {
+                                const uploadDiv = targetNameEl.closest('.upload');
+                                if (uploadDiv) {
+                                    const btn = uploadDiv.querySelector('.download_btn');
+                                    if (btn) {
+                                        selectedUploadId = btn.getAttribute('data-upload_id');
+                                    }
+                                }
+                            }
+
+                            // 3. Fetched Download URL via POST
+                            if (selectedUploadId && csrfToken) {
+                                // Remove query params or trailing slashes for clean base
+                                let baseUrl = itchPageUrl.split('?')[0].replace(/\/$/, '');
+                                const postUrl = `${baseUrl}/file/${selectedUploadId}`;
+
+                                // We need to POST via proxy
+                                // corsproxy.io supports methods? Assuming yes or using alternative if needed.
+                                // Note: Standard fetch post via proxy
+
+                                const postRes = await fetch(proxyUrl + encodeURIComponent(postUrl), {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/x-www-form-urlencoded'
+                                    },
+                                    body: 'csrf_token=' + encodeURIComponent(csrfToken)
+                                });
+
+                                if (postRes.ok) {
+                                    const data = await postRes.json();
+                                    if (data && data.url) {
+                                        storyFileUrl = data.url;
+                                        storyFormat = 'z-code';
+                                        console.log("Found Itch Z-code URL:", storyFileUrl);
+                                    }
+                                }
+                            } else {
+                                // Fallback: Check for manual links in description (original scraping logic)
+                                const links = Array.from(doc.querySelectorAll('a'));
+                                let bestLink = null;
+                                for (const a of links) {
+                                    const href = a.getAttribute('href');
+                                    if (!href) continue;
+                                    const lowerHref = href.toLowerCase();
+                                    if (lowerHref.endsWith('.z3') || lowerHref.endsWith('.z2') || lowerHref.endsWith('.z1')) {
+                                        if (!bestLink || lowerHref.endsWith('.z3')) { // prefer z3
+                                            bestLink = href;
+                                            if (lowerHref.endsWith('.z3')) break;
+                                        }
+                                    }
+                                }
+                                if (bestLink) {
+                                    storyFileUrl = new URL(bestLink, itchPageUrl).href;
+                                    storyFormat = 'z-code';
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Failed to scrape Itch.io page:", e);
+                    }
+                }
+                // ---------------------------------
+                let enrichedMeta = {
+                    ...gameMeta,
+                    storyFormat: storyFormat
+                };
+
+                // If no story file, game is not available (Strict Mode)
+                if (!storyFileUrl) {
+                    if (buttonElement) {
+                        buttonElement.innerText = 'Not Compatible';
+                        buttonElement.disabled = true;
+                        buttonElement.title = 'This game does not have a compatible Z-code (v1-3) version';
+                    }
+
+                    // Add to blacklist
+                    try {
+                        await db.collection('interactive_blacklist').doc(gameMeta.id).set({
+                            title: gameMeta.title,
+                            reason: `No compatible Z1/Z2/Z3 file found`,
+                            addedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        blacklistedTuids.add(gameMeta.id);
+                    } catch (e) {
+                        console.error('Failed to add to blacklist:', e);
+                    }
+
+                    showInfoModal('Not Compatible', 'This game does not have a compatible version (Z-code v1-3) available.');
+                    return;
+                }
+
+                // Download story file and upload to Worker
+                try {
+                    if (buttonElement) buttonElement.innerText = 'Downloading...';
+
+                    const storyRes = await fetch(proxyUrl + encodeURIComponent(storyFileUrl));
+                    if (!storyRes.ok) {
+                        throw new Error('Failed to download story file');
+                    }
+                    const storyBlob = await storyRes.blob();
+
+                    // Use Reusable Installer
+                    await installZCodeGame(enrichedMeta, storyBlob, buttonElement);
+
+                } catch (e) {
+                    console.error('Error downloading/uploading story file:', e);
+                    if (buttonElement) {
+                        buttonElement.innerText = 'Error';
+                        buttonElement.disabled = true;
+                    }
+                    if (e.message.startsWith('Incompatible')) {
+                        showInfoModal('Not Compatible', e.message);
+                        // Add to blacklist if incompatible logic triggered inside (which is now in installer, 
+                        // but we might want to move blacklist logic there too or keep simple for now)
+                        // Actually, the installer throws common errors. 
+                        // The original code had complex blacklist add logic on failure. 
+                        // For now, let's just show error.
+                    } else {
+                        showInfoModal('Download Failed', 'Could not download or upload the story file. Please try again later.');
+                    }
+                }
+            } catch (e) {
+                console.error('Error adding to library:', e);
+                if (buttonElement) {
+                    buttonElement.innerText = 'Add';
+                    buttonElement.disabled = false;
+                }
+                showInfoModal("Error", "Failed to add game: " + e.message);
+            }
+        }
+
+        // --- INFO MODAL ---
+        function showInfoModal(title, message) {
+            document.getElementById('info-modal-title').innerText = title;
+            document.getElementById('info-modal-text').innerText = message;
+            document.getElementById('info-modal').style.display = 'flex';
+        }
+
+        function closeInfoModal() {
+            document.getElementById('info-modal').style.display = 'none';
+        }
+
+
+
+        // --- DELETE / CLEAR ACTIONS ---
+        function clearGameProgress(game) {
+            showConfirmModal(
+                "Remove from History?",
+                `Remove "${game.title}" from Resume Playing? This will delete your progress but keep the story in your library.`,
+                async () => {
+                    try {
+                        // 1. Remove from History
+                        let recentGames = await localforage.getItem('interactive_recent_games') || [];
+                        recentGames = recentGames.filter(g => g.id !== game.id);
+                        await localforage.setItem('interactive_recent_games', recentGames);
+
+                        // 2. Remove Save File
+                        await localforage.removeItem(`interactive_save_${game.id}`);
+
+                        // 3. Clear Legacy ID if matches
+                        const lastId = await localforage.getItem('interactive_last_game_id');
+                        if (lastId === game.id) {
+                            await localforage.removeItem('interactive_last_game_id');
+                        }
+
+                        // 4. Refresh View
+                        loadLocalLibrary();
+                    } catch (e) {
+                        console.error("Failed to clear progress:", e);
+                        showInfoModal("Error", "Failed to remove progress.");
+                    }
+                },
+                'red', 'Remove'
+            );
+        }
+
+        function promptDelete(game) {
+            showConfirmModal(
+                "Delete Story?",
+                `Are you sure you want to delete "${game.title}" from your library permanently?`,
+                async () => {
+                    const docId = game.id;
+                    try {
+                        // Local Delete
+                        let index = await localforage.getItem('interactive_library_index') || [];
+                        index = index.filter(g => g.id !== docId);
+                        await localforage.setItem('interactive_library_index', index);
+
+                        // Note: We don't delete from cloud because requirements usually say owner-only or we can attempt it
+                        if (currentUser) {
+                            if (game.source === 'cloud') {
+                                // Attempt cloud delete (if permission allows)
+                                try {
+                                    // Use docId (which is the actual Firestore document ID)
+                                    const deleteId = game.docId || docId;
+                                    await db.collection('users').doc(currentUser.uid).collection('interactive_games').doc(deleteId).delete();
+                                } catch (e) { console.warn("Cloud delete failed", e); }
+                            }
+                        }
+
+                        loadLocalLibrary();
+                    } catch (e) {
+                        showModal("Failed to delete: " + e.message);
+                    }
+                },
+                'red', 'Delete'
+            );
+        }
+
+        // --- UI LOGIC ---
+        function setLibTab(tab) {
+            document.querySelectorAll('.lib-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.lib-view').forEach(v => v.style.display = 'none');
+
+            document.getElementById('tab-' + tab).classList.add('active');
+            document.getElementById('view-' + tab).style.display = 'block';
+
+            if (tab === 'search') {
+                const results = document.getElementById('search-results');
+                if (results.innerHTML === '') {
+                    loadCombinedStore();
+                }
+            } else if (tab === 'uploads') {
+                // Legacy
+            }
+        }
+
+        function showLibrary() {
+            document.getElementById('library-overlay').style.display = 'flex';
+            document.getElementById('app-title').innerText = "Interactive Reader";
+            loadLocalLibrary();
+        }
+
+        function handleSearch(e) {
+            if (e.key === 'Enter') searchIFDB();
+        }
+
+        // --- IFDB SEARCH ---
+
+
+
+
+        // Helper function to generate star display
+        function generateStarRating(starRating, numRatings) {
+            if (!starRating || numRatings === 0) return '';
+
+            const fullStars = Math.floor(starRating);
+            const halfStar = (starRating - fullStars) >= 0.5;
+            const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+
+            let stars = '';
+            for (let i = 0; i < fullStars; i++) stars += '★';
+            if (halfStar) stars += '½';
+            for (let i = 0; i < emptyStars; i++) stars += '☆';
+
+            return `<div class="star-rating"><span class="stars">${stars}</span> (${numRatings})</div>`;
+        }
+
+        // Helper function to check if game is in library
+        function isGameInLibrary(gameId) {
+            return mergedLibrary.some(g => g.id === gameId);
+        }
+
+        // --- IFDB & STORE LOGIC ---
+
+        async function fetchIFDBGames(query, offset = 0) {
+            const apiFilter = " downloadable:yes tag:z-machine v3";
+            const finalQuery = query + apiFilter;
+            const startPos = offset + 1;
+            const targetUrl = `https://ifdb.org/search?json&searchfor=${encodeURIComponent(finalQuery)}&searchgo=${startPos}&sortby=ratu&pgsize=${RESULTS_PER_PAGE}`;
+
+            const proxies = [
+                (url) => `/api/proxy?url=${encodeURIComponent(url)}`
+            ];
+
+            for (const proxy of proxies) {
+                try {
+                    const res = await fetch(proxy(targetUrl));
+                    if (res.ok) {
+                        const data = await res.json();
+                        return data.games || [];
+                    }
+                } catch (e) {
+                    console.warn("Proxy failed", e);
+                }
+            }
+            console.error("IFDB Fetch Error: All proxies failed");
+            return [];
+        }
+
+        async function loadCombinedStore() {
+            const resultsDiv = document.getElementById('search-results');
+            resultsDiv.innerHTML = '<div style="text-align:center; padding:20px;">Fetching highest rated stories & community uploads...</div>';
+
+            currentSearchQuery = "downloadable:yes";
+            currentSearchOffset = 0;
+            hasMoreResults = true; // For scrolling IFDB
+            currentSearchDisplayedTuids.clear();
+
+            try {
+                // 1. Fetch IFDB Top Rated
+                const ifdbPromise = fetchIFDBGames(currentSearchQuery, 0);
+                // 2. Fetch Recent Uploads
+                const uploadsPromise = fetchRecentUploads();
+
+                const [ifdbGames, uploadGames] = await Promise.all([ifdbPromise, uploadsPromise]);
+
+                // 3. Normalize IFDB games
+                const normalizedIFDB = [];
+                ifdbGames.forEach(g => {
+                    const tuid = g.tuid;
+                    if (!tuid) return;
+
+                    // Compatibility check (basic)
+                    const devsys = g.devsys || "";
+                    const compatible = devsys.includes('ZIL') || devsys.includes('Inform') || devsys.includes('Z-code') || devsys.includes('Infocom');
+                    if (!compatible) return;
+                    if (blacklistedTuids.has(tuid)) return;
+
+                    normalizedIFDB.push({
+                        id: tuid,
+                        title: g.title || "Unknown",
+                        author: g.author || "Unknown",
+                        starRating: parseFloat(g.starRating || 0),
+                        numRatings: parseInt(g.numRatings || 0),
+                        coverArtLink: g.coverArtLink || "",
+                        isUpload: false
+                    });
+                });
+
+                // 4. Normalize Uploads (already done mostly in fetch, just ensure keys match)
+                const normalizedUploads = uploadGames.map(u => ({
+                    id: "upload_" + u.docId,
+                    title: u.title,
+                    author: u.author,
+                    starRating: parseFloat(u.starRating || 0),
+                    numRatings: parseInt(u.numRatings || 0),
+                    coverArtLink: u.coverArtLink,
+                    isUpload: true,
+                    uploadData: u // Keep ref for import
+                }));
+
+                // 5. Merge and Sort
+                let combined = [...normalizedIFDB, ...normalizedUploads];
+
+                // Calculate scores
+                combined.forEach(g => {
+                    g.wilsonScore = calculateWilsonScore(g.starRating || 0, g.numRatings || 0);
+                });
+
+                // Sort by Wilson Score Descending
+                combined.sort((a, b) => b.wilsonScore - a.wilsonScore);
+
+                // 6. Render
+                if (combined.length === 0) {
+                    resultsDiv.innerHTML = '<div style="text-align:center; padding:20px;">No results found.</div>';
+                    return;
+                }
+
+                resultsDiv.innerHTML = '';
+                combined.forEach(game => renderStoreItem(game, resultsDiv));
+
+                // Add scroll indicator for IFDB loading (hybrid scrolling is tricky, for now just allow loading more IFDB)
+                // We'll just leave the scroll listener active, but it needs to call a function that appends valid IFDB results.
+                // Simplified: The "Load More" will just fetch next page of IFDB and append to bottom.
+                if (ifdbGames.length >= RESULTS_PER_PAGE) {
+                    const loadingMore = document.createElement('div');
+                    loadingMore.className = 'loading-more';
+                    loadingMore.style.cssText = 'text-align:center; padding:20px; color:#666;';
+                    loadingMore.innerText = 'Scroll for more from IFDB...';
+                    resultsDiv.appendChild(loadingMore);
+                } else {
+                    hasMoreResults = false;
+                }
+
+            } catch (e) {
+                console.error(e);
+                resultsDiv.innerHTML = '<div style="color:red; text-align:center; padding:20px;">Error loading store.</div>';
+            }
+        }
+
+        function renderStoreItem(game, container) {
+            if (currentSearchDisplayedTuids.has(game.id)) return;
+            currentSearchDisplayedTuids.add(game.id);
+
+            const el = document.createElement('div');
+            el.className = 'game-item';
+
+            const alreadyInLibrary = isGameInLibrary(game.id);
+
+            let imgHtml = '';
+            let badgeHtml = '';
+
+            if (game.isUpload) {
+                // badgeHtml = '<span style="font-size:0.7em; background:#ccc; padding:2px 4px; margin-left:5px; border-radius:3px;">Upload</span>';
+            }
+
+            if (game.coverArtLink) {
+                imgHtml = `<img src="${game.coverArtLink}" class="game-cover" alt="Cover" onerror="this.onerror=null;this.src='';this.parentNode.innerHTML='<div class=\\'game-cover\\' style=\\'display:flex;align-items:center;justify-content:center;color:#666;font-size:20px; background:#000;\\'>?</div>';">`;
+            } else {
+                imgHtml = `<div class="game-cover" style="display:flex;align-items:center;justify-content:center;color:#666;font-size:20px; background:#000;">?</div>`;
+            }
+
+            const starHtml = generateStarRating(game.starRating, game.numRatings);
+
+            el.innerHTML = `
+                 ${imgHtml}
+                 <div style="flex-grow:1; min-width: 0;">
+                     <div class="game-title">${game.title.replace(/</g, "&lt;")}${badgeHtml}</div>
+                     <div class="game-desc">${game.author.replace(/</g, "&lt;")}</div>
+                     ${starHtml}
+                 </div>
+             `;
+
+            const addBtn = document.createElement('button');
+            addBtn.className = 'sys-btn';
+
+            if (alreadyInLibrary) {
+                addBtn.innerText = 'Added';
+                addBtn.classList.add('added');
+            } else {
+                addBtn.innerText = 'Add';
+                if (game.isUpload) {
+                    addBtn.onclick = () => importUserGame(game.uploadData.docId, game.uploadData, addBtn);
+                } else {
+                    // Reconstruct meta for IFDB add
+                    const meta = {
+                        id: game.id,
+                        title: game.title,
+                        author: game.author,
+                        url: `https://ifdb.org/viewgame?id=${game.id}`,
+                        coverArtLink: game.coverArtLink,
+                        starRating: game.starRating,
+                        numRatings: game.numRatings
+                    };
+                    addBtn.onclick = () => addToLibrary(meta, addBtn);
+                }
+            }
+            el.appendChild(addBtn);
+            container.appendChild(el);
+        }
+
+        async function searchIFDB() {
+            const query = document.getElementById('search-input').value;
+            // If empty, load combined default
+            if (!query || query.trim() === "") {
+                loadCombinedStore();
+                return;
+            }
+
+            // If query exists, perform standard IFDB search (we could fallback to "performIFDBSearch" style logic using shared render)
+            currentSearchQuery = query;
+            currentSearchOffset = 0;
+            hasMoreResults = true;
+            currentSearchDisplayedTuids.clear();
+
+            const resultsDiv = document.getElementById('search-results');
+            resultsDiv.innerHTML = '<div style="text-align:center; padding:20px;">Searching IFDB...</div>';
+
+            const games = await fetchIFDBGames(query, 0);
+
+            resultsDiv.innerHTML = '';
+
+            // Normalize and Render IFDB Search Results
+            if (games.length === 0) {
+                resultsDiv.innerHTML = '<div style="text-align:center; padding:20px;">No results found.</div>';
+                return;
+            }
+
+            // Sort search results by Wilson Score
+            games.forEach(g => {
+                g.wilsonScore = calculateWilsonScore(parseFloat(g.starRating) || 0, parseInt(g.numRatings) || 0);
+            });
+            games.sort((a, b) => b.wilsonScore - a.wilsonScore);
+
+            games.forEach(g => {
+                const tuid = g.tuid;
+                if (!tuid) return;
+                const devsys = g.devsys || "";
+                const compatible = devsys.includes('ZIL') || devsys.includes('Inform') || devsys.includes('Z-code') || devsys.includes('Infocom');
+                if (!compatible) return;
+                if (blacklistedTuids.has(tuid)) return;
+
+                renderStoreItem({
+                    id: tuid,
+                    title: g.title || "Unknown",
+                    author: g.author || "Unknown",
+                    starRating: parseFloat(g.starRating || 0),
+                    numRatings: parseInt(g.numRatings || 0),
+                    coverArtLink: g.coverArtLink || "",
+                    isUpload: false
+                }, resultsDiv);
+            });
+
+            if (games.length >= RESULTS_PER_PAGE) {
+                const loadingMore = document.createElement('div');
+                loadingMore.className = 'loading-more';
+                loadingMore.style.cssText = 'text-align:center; padding:20px; color:#666;';
+                loadingMore.innerText = 'Scroll for more...';
+                resultsDiv.appendChild(loadingMore);
+            } else {
+                hasMoreResults = false;
+            }
+        }
+
+        async function loadMoreResults() {
+            if (isLoadingMore || !hasMoreResults) return;
+            isLoadingMore = true;
+            currentSearchOffset += RESULTS_PER_PAGE;
+
+            const games = await fetchIFDBGames(currentSearchQuery, currentSearchOffset);
+            const resultsDiv = document.getElementById('search-results');
+
+            const indicator = resultsDiv.querySelector('.loading-more');
+            if (indicator) indicator.remove();
+
+            if (games.length === 0) {
+                hasMoreResults = false;
+                // Add "End" message?
+            } else {
+                games.forEach(g => {
+                    g.wilsonScore = calculateWilsonScore(parseFloat(g.starRating) || 0, parseInt(g.numRatings) || 0);
+                });
+                games.sort((a, b) => b.wilsonScore - a.wilsonScore);
+
+                games.forEach(g => {
+                    const tuid = g.tuid;
+                    if (!tuid) return;
+                    const devsys = g.devsys || "";
+                    const compatible = devsys.includes('ZIL') || devsys.includes('Inform') || devsys.includes('Z-code') || devsys.includes('Infocom');
+                    if (!compatible) return;
+                    if (blacklistedTuids.has(tuid)) return;
+
+                    renderStoreItem({
+                        id: tuid,
+                        title: g.title || "Unknown",
+                        author: g.author || "Unknown",
+                        starRating: parseFloat(g.starRating || 0),
+                        numRatings: parseInt(g.numRatings || 0),
+                        coverArtLink: g.coverArtLink || "",
+                        isUpload: false
+                    }, resultsDiv);
+                });
+            }
+
+            if (games.length >= RESULTS_PER_PAGE) {
+                const loadingMore = document.createElement('div');
+                loadingMore.className = 'loading-more';
+                loadingMore.style.cssText = 'text-align:center; padding:20px; color:#666;';
+                loadingMore.innerText = 'Scroll for more...';
+                resultsDiv.appendChild(loadingMore);
+            } else {
+                hasMoreResults = false;
+            }
+
+            isLoadingMore = false;
+        }
+
+        function setupSearchScroll() {
+            const searchView = document.getElementById('view-search');
+            if (!searchView) return;
+
+            searchView.addEventListener('scroll', () => {
+                const {
+                    scrollTop,
+                    scrollHeight,
+                    clientHeight
+                } = searchView;
+                if (scrollTop + clientHeight >= scrollHeight - 50) {
+                    loadMoreResults();
+                }
+            });
+        }
+
+        // Initialize scroll listener when DOM is ready
+        document.addEventListener('DOMContentLoaded', setupSearchScroll);
+
+        // --- UPLOAD LOGIC ---
+        function openUploadModal() {
+            if (!currentUser) {
+                showInfoModal("Login Required", "You must be logged in to upload stories.");
+                return;
+            }
+            document.getElementById('upload-title').value = '';
+            document.getElementById('upload-author').value = '';
+            document.getElementById('upload-cover').value = '';
+            document.getElementById('upload-cover-container').style.display = 'none';
+            document.getElementById('upload-file').value = '';
+            document.getElementById('upload-modal').style.display = 'flex';
+        }
+
+        function closeUploadModal() {
+            document.getElementById('upload-modal').style.display = 'none';
+        }
+
+        // --- UPLOAD HELPERS ---
+        async function fetchUploadMetadata(title) {
+            try {
+                const proxyUrl = "/api/proxy?url=";
+                // Use sortby=rel (Relevance)
+                const targetUrl = `https://ifdb.org/search?json&searchfor=${encodeURIComponent(title)}&sortby=rel`;
+
+                const res = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+                const data = await res.json();
+
+                if (data && data.games && data.games.length > 0) {
+                    // Refined Match Logic:
+                    // 1. Check for Exact Matches (case-insensitive)
+                    const searchTitle = title.toLowerCase().trim();
+                    const exactMatches = data.games.filter(g => (g.title || "").toLowerCase().trim() === searchTitle);
+
+                    if (exactMatches.length > 0) {
+                        // 2. Choose match with most reviews
+                        exactMatches.sort((a, b) => (parseInt(b.numRatings) || 0) - (parseInt(a.numRatings) || 0));
+                        return exactMatches[0];
+                    }
+
+                    // 3. Fallback to first result (most relevant)
+                    return data.games[0];
+                }
+            } catch (e) {
+                console.warn("Metadata fetch failed for", title, e);
+            }
+            return null;
+        }
+
+        async function startUpload() {
+            const title = document.getElementById('upload-title').value;
+            const author = document.getElementById('upload-author').value || 'Unknown';
+            let coverUrl = document.getElementById('upload-cover').value;
+            const fileInput = document.getElementById('upload-file');
+            const coverContainer = document.getElementById('upload-cover-container');
+
+            if (!title) {
+                if (!title) return showModal("Please enter a title.");
+                return;
+            }
+
+            // AUTO-SEARCH LOGIC
+            // If the cover input is hidden, we haven't tried searching yet (or user hasn't intervened).
+            if (coverContainer.style.display === 'none') {
+                const btn = document.querySelector('#upload-modal .sys-btn:last-child'); // The "Upload" button
+                const originalText = btn.innerText;
+                btn.innerText = "Searching IFDB...";
+                btn.disabled = true;
+
+                try {
+                    const metadata = await fetchUploadMetadata(title);
+
+                    if (metadata && metadata.coverArtLink) {
+                        console.log("Found cover art:", metadata.coverArtLink);
+                        coverUrl = metadata.coverArtLink;
+                        // Proceed with upload using this URL automatically
+                    } else {
+                        // Not found - show input
+                        coverContainer.style.display = 'block';
+                        btn.innerText = originalText;
+                        btn.disabled = false;
+                        return; // Stop here to let user enter URL
+                    }
+                } catch (e) {
+                    // On error, also show input
+                    console.error("Search error", e);
+                    coverContainer.style.display = 'block';
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    return;
+                }
+                // If we got here, we have a coverUrl (or we are proceeding if we want to allow empty? No, existing logic handles empty optionally)
+                // Actually, if found, coverUrl is set. If we want to allow user to override? 
+                // The requirement says "only ask the user for a cover art image url if an artwork isn't found".
+                // So if found, we just proceed.
+
+                btn.innerText = originalText; // Restore text for next steps (Processing...)
+                btn.disabled = false;
+            }
+
+            if (fileInput.files.length === 0) {
+                if (!file) return showModal("Please select a file.");
+                return;
+            }
+
+            // Cover Image Validation
+            let validCoverUrl = "";
+            if (coverUrl && coverUrl.trim() !== "") {
+                // Determine if it's a proxied/validatable URL or just trust IFDB?
+                // The existing validation logic checks if it loads.
+                // We should keep validCoverUrl logic, but we need to ensure the async check runs.
+
+                // Existing logic:
+                const isValid = await new Promise(resolve => {
+                    const img = new Image();
+                    img.onload = () => resolve(true);
+                    img.onerror = () => resolve(false);
+                    img.src = coverUrl;
+                });
+                if (!isValid) {
+                    // If IFDB gave us a bad link, what then?
+                    // We probably should fallback to manual input.
+                    if (coverContainer.style.display === 'none') {
+                        showModal("Authoritative cover art failed to load. Please enter one manually.");
+                        coverContainer.style.display = 'block';
+                        return;
+                    } else {
+                        showModal("Invalid Cover Image URL. Please provide a direct link to an image file.");
+                        return;
+                    }
+                }
+                validCoverUrl = coverUrl;
+            }
+
+            const file = fileInput.files[0];
+            const name = file.name.toLowerCase();
+            if (!name.endsWith('.z1') && !name.endsWith('.z2') && !name.endsWith('.z3')) {
+                if (!exts.includes(extension)) return showModal("Only .z1, .z2, and .z3 files are allowed.");
+                return;
+            }
+
+            // NEW: Size Limit Check (700KB)
+            if (file.size > 700 * 1024) {
+                if (fileSize > 700000) return showModal("File too large. Maximum size is 700KB for direct database storage.");
+                return;
+            }
+
+            closeUploadModal();
+            document.getElementById('loading-indicator').style.display = 'flex';
+
+            try {
+                // 1. Read File as Base64 Data URI
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = (e) => reject(e);
+                    reader.readAsDataURL(file);
+                });
+
+                // 2. Add to Firestore "interactive_uploads" (with data in document)
+                // Fetch fresh metadata if needed (or rely on what we found)
+                const finalMetadata = await fetchUploadMetadata(title) || {};
+
+                await db.collection('interactive_uploads').add({
+                    title: title,
+                    author: author,
+                    uploaderUid: currentUser.uid,
+                    uploaderName: currentUser.email ? currentUser.email.split('@')[0] : 'User',
+                    filename: file.name,
+                    downloadURL: dataUrl, // DIRECT DATA URI
+                    coverArtLink: validCoverUrl,
+                    uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    size: file.size,
+                    zVersion: name.endsWith('.z3') ? 3 : (name.endsWith('.z2') ? 2 : 1),
+                    starRating: finalMetadata.starRating || 0,
+                    numRatings: finalMetadata.numRatings || 0
+                });
+
+                showInfoModal("Success", "Story uploaded successfully! It is now available in the 'Online Store'.");
+                setLibTab('search');
+                loadCombinedStore(); // Reload to show new item
+
+            } catch (e) {
+                console.error("Upload error:", e);
+                showInfoModal("Error", "Upload failed: " + e.message);
+            } finally {
+                document.getElementById('loading-indicator').style.display = 'none';
+            }
+        }
+
+        // --- COMBINED STORE LOGIC ---
+
+        async function fetchRecentUploads() {
+            // Return promise with recent uploads (with ratings)
+            return new Promise((resolve, reject) => {
+                db.collection('interactive_uploads')
+                    .orderBy('uploadedAt', 'desc')
+                    .limit(50)
+                    .get()
+                    .then(async snapshot => {
+                        const games = [];
+                        snapshot.forEach(doc => {
+                            games.push({ ...doc.data(), docId: doc.id, isUpload: true });
+                        });
+
+                        // Fetch missing ratings concurrently
+                        const promises = games.map(async game => {
+                            if (game.starRating !== undefined) return;
+                            const ratingData = await fetchIFDBRating(game.title);
+                            if (ratingData) {
+                                game.starRating = ratingData.starRating;
+                                game.numRatings = ratingData.numRatings;
+                            } else {
+                                game.starRating = 0;
+                                game.numRatings = 0;
+                            }
+                        });
+
+                        await Promise.all(promises);
+                        resolve(games);
+                    })
+                    .catch(reject);
+            });
+        }
+
+        function calculateWilsonScore(starRating, numRatings) {
+            if (!numRatings || numRatings === 0) return 0;
+            const phat = starRating / 5.0;
+            const n = numRatings;
+            const z = 1.96; // 95% confidence
+
+            const numerator = phat + z * z / (2 * n) - z * Math.sqrt((phat * (1 - phat) + z * z / (4 * n)) / n);
+            const denominator = 1 + z * z / n;
+            return numerator / denominator;
+        }
+
+        // --- RATING HELPER ---
+        async function fetchIFDBRating(title) {
+            if (!title) return null;
+            try {
+                const proxyUrl = "/api/proxy?url=";
+                // Simple search for the title (no "title:" prefix as API doesn't support it reliably)
+                const query = title;
+                const targetUrl = `https://ifdb.org/search?json&searchfor=${encodeURIComponent(query)}&searchgo=1&pgsize=50`; // Increase fetch size to find match
+
+                const res = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+                const data = await res.json();
+
+                if (data && data.games && data.games.length > 0) {
+                    // Client-side exact match filter
+                    const lowerTitle = title.toLowerCase().trim();
+                    const match = data.games.find(g => (g.title || "").toLowerCase().trim() === lowerTitle);
+
+                    if (match && match.starRating && match.numRatings) {
+                        return {
+                            starRating: parseFloat(match.starRating),
+                            numRatings: parseInt(match.numRatings)
+                        };
+                    }
+                }
+            } catch (e) {
+                console.warn("Rating fetch failed for", title);
+            }
+            return null;
+        }
+
+        async function importUserGame(docId, data, btnElement) {
+            if (btnElement) {
+                btnElement.innerText = 'Adding...';
+                btnElement.disabled = true;
+            }
+
+            const gameMeta = {
+                id: "upload_" + docId,
+                title: data.title,
+                author: data.author,
+                description: "User Uploaded Story",
+                type: 'iframe',
+                coverArtLink: data.coverArtLink || "",
+                storyFormat: 'z-code'
+            };
+
+            // FETCH RATING BEFORE SAVING
+            const ratingData = await fetchIFDBRating(data.title);
+            if (ratingData) {
+                gameMeta.starRating = ratingData.starRating;
+                gameMeta.numRatings = ratingData.numRatings;
+            }
+
+            // Download blob from Storage URL
+            try {
+                const res = await fetch(data.downloadURL);
+                const blob = await res.blob();
+                await installZCodeGame(gameMeta, blob, btnElement);
+            } catch (e) {
+                console.error("Import failed:", e);
+                showInfoModal("Error", "Failed to import game: " + e.message);
+                if (btnElement) {
+                    btnElement.innerText = 'Error';
+                    btnElement.disabled = false;
+                }
+            }
+        }
+
+        async function deleteUserUpload(docId, filename) {
+            console.warn("Delete disabled per requirements");
+        }
+
+        async function fetchAndRenderRating(title, elementId) {
+            const ratingData = await fetchIFDBRating(title);
+            if (ratingData) {
+                const el = document.getElementById(elementId);
+                if (el) {
+                    const fullStars = Math.floor(ratingData.starRating);
+                    const halfStar = (ratingData.starRating - fullStars) >= 0.5;
+                    let starStr = '';
+                    for (let i = 0; i < fullStars; i++) starStr += '★';
+                    if (halfStar) starStr += '½';
+
+                    el.innerHTML = `• <span style="color:#000; letter-spacing:1px;">${starStr}</span> (${ratingData.numRatings})`;
+                }
+            }
+        }
+
+
+        // --- REUSABLE INSTALLER ---
+        async function installZCodeGame(gameMeta, storyBlob, buttonElement) {
+            try {
+                // Check Z-code version (use FileReader for broad browser compat)
+                const arrayBuffer = await new Promise((resolve, reject) => {
+                    const r = new FileReader();
+                    r.onloadend = () => resolve(r.result);
+                    r.onerror = reject;
+                    r.readAsArrayBuffer(storyBlob);
+                });
+                const bytes = new Uint8Array(arrayBuffer);
+                const zVersion = bytes[0];
+
+                if (zVersion < 1 || zVersion > 3) {
+                    throw new Error(`Incompatible Z-code version ${zVersion}. Only v1-3 supported.`);
+                }
+
+                // Convert to base64
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(storyBlob);
+                });
+
+                // Generate filename
+                let filename = "story.z" + zVersion;
+
+                // Upload to Story Server Worker
+                if (buttonElement) buttonElement.innerText = 'Processing...';
+
+                // NOTE: Using the same story server worker path
+                const uploadRes = await fetch(`${STORY_SERVER_URL}/upload`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: base64, filename: filename })
+                });
+
+                if (!uploadRes.ok) {
+                    throw new Error('Worker processing failed');
+                }
+
+                const uploadData = await uploadRes.json();
+
+                // Update Meta
+                gameMeta.storyWorkerUrl = uploadData.url;
+                gameMeta.hasWorkerStory = true;
+
+                // Save to library
+                let index = await localforage.getItem('interactive_library_index') || [];
+                // Remove existing if overwriting (e.g. re-import)
+                index = index.filter(g => g.id !== gameMeta.id);
+
+                index.push(gameMeta);
+                await localforage.setItem('interactive_library_index', index);
+
+                // Sync to Cloud Library (User's personal list)
+                if (currentUser) {
+                    // Check if already exists to update or add
+                    // Simple append for now as we use unique IDs
+                    db.collection('users').doc(currentUser.uid).collection('interactive_games').add({
+                        ...gameMeta,
+                        ...{ added: firebase.firestore.FieldValue.serverTimestamp() }
+                    });
+                }
+
+                if (buttonElement) {
+                    buttonElement.innerText = 'Added';
+                    buttonElement.classList.add('added');
+                    buttonElement.onclick = null;
+                    buttonElement.disabled = false;
+                }
+
+                loadLocalLibrary();
+
+            } catch (e) {
+                console.error("Install failed:", e);
+                throw e; // Propagate to caller
+            }
+        }
+
+        // --- GAME ENGINE ---
+        async function loadGame(gameMeta, reset = true) {
+            document.getElementById('loading-indicator').style.display = 'flex';
+            currentMeta = gameMeta; // Save for restart
+
+            // Clean up previous
+            document.getElementById('game-container').innerHTML = ''; // Clear container
+
+            // Reset Container Style
+            const container = document.getElementById('game-container');
+            container.style.padding = '0';
+            container.style.overflow = 'hidden';
+
+            try {
+                document.getElementById('game-status').innerText = gameMeta.title;
+                document.getElementById('app-title').innerText = gameMeta.title; // Update window title to Game Title
+                document.getElementById('library-overlay').style.display = 'none';
+
+                // SAVE RECENT GAMES (History)
+                try {
+                    let recentGames = await localforage.getItem('interactive_recent_games') || [];
+                    // Remove current if exists (to move to top)
+                    recentGames = recentGames.filter(g => g.id !== gameMeta.id);
+                    // Add to top
+                    recentGames.unshift({
+                        id: gameMeta.id,
+                        title: gameMeta.title,
+                        author: gameMeta.author,
+                        coverArtLink: gameMeta.coverArtLink,
+                        timestamp: Date.now(),
+                        meta: gameMeta // Store full meta for resume capability
+                    });
+                    // Limit
+                    if (recentGames.length > 20) recentGames = recentGames.slice(0, 20);
+
+                    await localforage.setItem('interactive_recent_games', recentGames);
+
+                    // Legacy Support (keep for now, or just ignore)
+                    await localforage.setItem('interactive_last_game_id', gameMeta.id);
+                } catch (e) { console.warn("Failed to save history", e); }
+
+                if (gameMeta.type === 'native') {
+                    // RESTORE NATIVE UI
+                    container.style.padding = '40px';
+                    container.style.overflowY = 'auto';
+                    container.innerHTML = `
+                        <div id="story-area" class="story-text"></div>
+                        <div id="choices-area" class="choices-area"></div>
+                    `;
+
+                    // Fetch game data
+                    let gameData;
+                    if (gameMeta.url.startsWith('data:')) {
+                        const json = decodeURIComponent(gameMeta.url.substring(gameMeta.url.indexOf(',') + 1));
+                        gameData = JSON.parse(json);
+                    } else {
+                        const res = await fetch(gameMeta.url);
+                        gameData = await res.json();
+                    }
+
+                    currentGame = gameData;
+                    currentGame.id = gameMeta.id;
+
+                    let startScene = currentGame.start;
+
+                    // Restore progress?
+                    if (!reset) {
+                        const savedState = await localforage.getItem(`interactive_save_${gameMeta.id}`);
+                        if (savedState) startScene = savedState.sceneId;
+                    }
+
+                    renderScene(startScene);
+                } else {
+                    // Not a JSON-based game - check for storyWorkerUrl (Z3 games)
+                    if (gameMeta.storyWorkerUrl && gameMeta.hasWorkerStory) {
+                        // Z3 game - load via worker's server-side interpreter
+                        container.innerHTML = '<div style="text-align:center; padding:40px;">Loading game...</div>';
+
+                        const iframe = document.createElement('iframe');
+                        iframe.style.width = '100%';
+                        iframe.style.height = '100%';
+                        iframe.style.border = 'none';
+                        // Worker serves a simple HTML page with the game
+                        let targetUrl = gameMeta.storyWorkerUrl;
+                        if (reset) {
+                            targetUrl += '?restart=true';
+                        }
+                        iframe.src = targetUrl;
+
+                        container.innerHTML = '';
+                        container.appendChild(iframe);
+                        currentGame = null;
+                    } else if (gameMeta.playOnlineUrl) {
+                        // Choice-based game with play online URL
+                        container.style.padding = '40px';
+                        container.style.textAlign = 'center';
+                        container.innerHTML = `
+                                <div style="max-width: 400px; margin: 0 auto;">
+                                    <h2 style="margin-bottom: 20px;">${gameMeta.title || 'Game'}</h2>
+                                    <p style="color: #666; margin-bottom: 30px;">
+                                        by ${gameMeta.author || 'Unknown'}
+                                    </p>
+                                    <a href="${gameMeta.playOnlineUrl}" 
+                                       target="_blank"
+                                       style="display: inline-block; padding: 15px 40px; background: #000; color: #fff; 
+                                              text-decoration: none; font-weight: bold; font-size: 1.2rem;">
+                                        ▶ Play Game
+                                    </a>
+                                </div>
+                            `;
+                        currentGame = null;
+                    } else {
+                        // No playable URL
+                        container.style.padding = '40px';
+                        container.style.textAlign = 'center';
+                        container.innerHTML = '<div style="color: #666;"><strong>Story Not Found</strong><br><br>Please delete and re-add this game.</div>';
+                        currentGame = null;
+                    }
+                }
+            } catch (e) {
+                showInfoModal("Error", "Failed to load game: " + e.message);
+            } finally {
+                document.getElementById('loading-indicator').style.display = 'none';
+            }
+        }
+
+
+        function renderScene(sceneId) {
+            if (!currentGame || !currentGame.scenes[sceneId]) { return; }
+
+            currentSceneId = sceneId;
+            const scene = currentGame.scenes[sceneId];
+
+            // Save progress
+            if (currentGame.id) {
+                localforage.setItem(`interactive_save_${currentGame.id}`, {
+                    sceneId: sceneId,
+                    timestamp: Date.now()
+                });
+            }
+
+            const storyArea = document.getElementById('story-area');
+            const choicesArea = document.getElementById('choices-area');
+
+            // Handle text array or string
+            let textHtml = '';
+            if (Array.isArray(scene.text)) {
+                textHtml = scene.text.map(line => `<p>${line}</p>`).join('');
+            } else {
+                textHtml = scene.text.split('\n').map(line => `<p>${line}</p>`).join('');
+            }
+            storyArea.innerHTML = textHtml;
+
+            choicesArea.innerHTML = '';
+            if (scene.choices && scene.choices.length > 0) {
+                scene.choices.forEach(choice => {
+                    const btn = document.createElement('button');
+                    btn.className = 'choice-btn';
+                    btn.innerText = choice.text;
+                    btn.onclick = () => renderScene(choice.target);
+                    choicesArea.appendChild(btn);
+                });
+            } else {
+                // End of game?
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.innerText = "Restart Game";
+                btn.onclick = () => restartGame();
+                choicesArea.appendChild(btn);
+            }
+
+            // Scroll to top
+            const container = document.getElementById('game-container');
+            container.scrollTop = 0;
+        }
+
+        function restartGame() {
+            if (currentMeta) {
+                showConfirmModal("Restart Game", "Are you sure you want to restart? Progress will be lost.", () => {
+                    loadGame(currentMeta, true);
+                });
+            }
+        }
+
+    </script>
+
+    <script>
+
+
+
+
+    </script>
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675"
+        data-utcoffset="11" integrity="sha384-nhrsdECZledRaozO3oR4Yu+cq4ACLwBiZ/azuVbm3o9QGzXLdLaRx+r/zDUQ6bLl" crossorigin="anonymous"></script>
+    <!-- STANDARD MODAL POPUP -->
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <div id="modal-message" class="modal-text"></div>
+            <div id="modal-btns" class="modal-btns"></div>
+        </div>
+    </div>
+
+
+</body>
+
+</html>

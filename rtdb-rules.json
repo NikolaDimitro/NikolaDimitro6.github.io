@@ -1,0 +1,205 @@
+{
+    "rules": {
+        "age_verification_sessions": {
+            ".read": false,
+            ".write": false,
+            "$sessionId": {
+                ".read": true
+            }
+        },
+        "freewrite_sessions": {
+            "$sessionId": {
+                ".read": "auth != null",
+                ".write": "auth != null"
+            }
+        },
+        "pro_gate": {
+            ".read": "auth != null",
+            ".write": "auth.token.email === 'ukiyo@rekindle.ink'"
+        },
+        "presence": {
+            "$uid": {
+                ".read": "auth != null",
+                ".write": "auth != null && auth.uid === $uid",
+                ".validate": "newData.isBoolean()"
+            }
+        },
+        "moderators": {
+            ".read": "auth != null",
+            ".write": "auth.token.email === 'ukiyo@rekindle.ink'"
+        },
+        "kindlechat": {
+            "presence": {
+                ".read": false,
+                ".write": false
+            },
+            "user_limits": {
+                "$username": {
+                    ".read": "auth != null && auth.token.email.beginsWith($username + '@')",
+                    ".write": "auth.token.email === 'ukiyo@rekindle.ink'"
+                }
+            },
+            "translations_by_lang": {
+                "$lang": {
+                    "$msgId": {
+                        ".read": "true",
+                        ".write": "(auth != null && root.child('kindlechat/messages/' + $msgId + '/uid').val() === auth.uid) || auth.token.email === 'ukiyo@rekindle.ink'",
+                        ".validate": "newData.isString() && newData.val().length <= 2000"
+                    }
+                }
+            },
+            "messages": {
+                ".read": true,
+                ".write": "auth.token.email === 'ukiyo@rekindle.ink'",
+                ".indexOn": [
+                    "timestamp"
+                ],
+                "$messageId": {
+                    ".write": "auth.token.email === 'ukiyo@rekindle.ink' || auth.token.email.matches(/^.*@rekindle-dd1fa\\.iam\\.gserviceaccount\\.com$/) || (auth != null && !newData.exists() && root.child('moderators').child(auth.uid).val() === true && data.child('uid').val() !== auth.uid) || (auth != null && data.exists() && newData.exists() && newData.child('text').val() === data.child('text').val() && newData.child('timestamp').val() === data.child('timestamp').val() && newData.child('uid').val() === data.child('uid').val())",
+                    ".validate": "(newData.hasChildren(['uid', 'text', 'timestamp']) && !newData.hasChild('isPro') && (newData.child('uid').val() === auth.uid || auth.token.email.matches(/^.*@rekindle-dd1fa\\.iam\\.gserviceaccount\\.com$/))) || auth.token.email === 'ukiyo@rekindle.ink' || (data.exists() && newData.child('text').val() === data.child('text').val() && newData.child('timestamp').val() === data.child('timestamp').val() && newData.child('uid').val() === data.child('uid').val() && !newData.hasChild('isPro'))",
+                    "translation": {
+                        ".write": "root.child('kindlechat/messages/' + $messageId + '/uid').val() === auth.uid || auth.token.email === 'ukiyo@rekindle.ink'"
+                    },
+                    "reactions": {
+                        "$uid": {
+                            ".write": "auth.uid === $uid",
+                            ".validate": "newData.hasChildren(['reaction', 'username'])"
+                        }
+                    }
+                }
+            }
+        },
+        "user_cards": {
+            ".read": "auth != null",
+            ".indexOn": ["username"],
+            "$uid": {
+                ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'ukiyo@rekindle.ink')"
+            }
+        },
+        "users_public": {
+            ".read": "auth != null",
+            ".indexOn": ["lastActive", "email"],
+            "$userId": {
+                ".write": "auth != null && (auth.uid === $userId || auth.token.email === 'ukiyo@rekindle.ink')",
+                "username": {
+                    ".validate": "auth.token.email === 'ukiyo@rekindle.ink' || (newData.isString() && newData.val().length <= 40 && newData.val().matches(/^[a-zA-Z0-9_.-]+$/) && !newData.val().matches(/.*([uU][kK][iI][yY][oO]|[rR][eE][kK][iI][nN][dD][lL][eE]|[wW][aA][nN][tT][bB][aA][nN]|[rR][oO][oO][tT]|[sS][yY][sS][tT][eE][mM]|[aA][dD][mM][iI][nN]|[mM][oO][dD]|[sS][uU][pP][pP][oO][rR][tT]).*/))"
+                }
+            }
+        },
+        "users_private": {
+            "$userId": {
+                ".read": "auth != null && (auth.uid === $userId || auth.token.email === 'ukiyo@rekindle.ink')",
+                ".write": "auth != null && auth.uid === $userId"
+            }
+        },
+        "timeouts": {
+            "$uid": {
+                ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'ukiyo@rekindle.ink' || root.child('moderators').child(auth.uid).val() === true)",
+                ".write": "auth != null && (auth.token.email === 'ukiyo@rekindle.ink' || root.child('moderators').child(auth.uid).val() === true)"
+            }
+        },
+        "banned_ips": {
+            ".read": true,
+            ".write": "auth.token.email === 'ukiyo@rekindle.ink'"
+        },
+        "automod_log": {
+            ".read": "auth.token.email === 'ukiyo@rekindle.ink' || (auth != null && root.child('moderators').child(auth.uid).val() === true)",
+            ".write": "auth.token.email === 'ukiyo@rekindle.ink' || auth.token.email.matches(/^.*@rekindle-dd1fa\\.iam\\.gserviceaccount\\.com$/)"
+        },
+        "automod_strikes": {
+            ".read": "auth.token.email === 'ukiyo@rekindle.ink' || (auth != null && root.child('moderators').child(auth.uid).val() === true)",
+            ".write": "auth.token.email === 'ukiyo@rekindle.ink'"
+        },
+        "automod_last_action": {
+            ".read": "auth.token.email === 'ukiyo@rekindle.ink'",
+            ".write": "auth.token.email === 'ukiyo@rekindle.ink'"
+        },
+        "mod_actions": {
+            ".read": "auth.token.email === 'ukiyo@rekindle.ink' || (auth != null && root.child('moderators').child(auth.uid).val() === true)",
+            ".write": "auth.token.email === 'ukiyo@rekindle.ink'",
+            "$actionId": {
+                ".write": "auth.token.email === 'ukiyo@rekindle.ink' || (auth != null && root.child('moderators').child(auth.uid).val() === true && (!data.exists() || (data.child('moderatorUid').val() === auth.uid && newData.exists() && data.child('type').val() === newData.child('type').val() && data.child('moderatorUid').val() === newData.child('moderatorUid').val() && data.child('targetUid').val() === newData.child('targetUid').val() && data.child('createdAt').val() === newData.child('createdAt').val())))",
+                ".validate": "newData.hasChildren(['type', 'moderatorUid', 'targetUid', 'createdAt'])"
+            }
+        },
+        "matchmaking": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+        },
+        "games": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+        },
+        "suggestions": {
+            ".read": true,
+            ".indexOn": ["createdAt", "authorUid", "type", "status"],
+            "$suggestionId": {
+                ".write": "auth != null && ((!data.exists() && newData.child('authorUid').val() == auth.uid) || (data.exists() && auth.token.email == 'ukiyo@rekindle.ink'))",
+                ".validate": "newData.hasChildren(['title', 'description', 'authorUid', 'authorName', 'createdAt'])",
+                "title": {
+                    ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1000"
+                },
+                "description": {
+                    ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 5000"
+                },
+                "type": {
+                    ".validate": "newData.isString() && (newData.val() == 'suggestion' || newData.val() == 'problem' || newData.val() == 'translation')"
+                },
+                "category": {
+                    ".validate": "newData.isString() && newData.val().length <= 100"
+                },
+                "device": {
+                    ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 200)"
+                },
+                "app": {
+                    ".validate": "newData.val() == null || (newData.isString() && newData.val().length <= 200)"
+                },
+                "authorUid": {
+                    ".validate": "newData.isString() && newData.val() == auth.uid"
+                },
+                "authorName": {
+                    ".validate": "newData.isString() && newData.val().length <= 100"
+                },
+                "isPro": {
+                    ".validate": "newData.isBoolean()"
+                },
+                "status": {
+                    ".validate": "newData.val() == null || newData.val() == 'in_progress' || newData.val() == 'done' || newData.val() == 'closed' || newData.val() == 'deferred'"
+                },
+                "createdAt": {
+                    ".validate": "newData.isNumber()"
+                },
+                "upvotes": {
+                    "$uid": {
+                        ".write": "auth != null && auth.uid == $uid",
+                        ".validate": "newData.val() == true"
+                    }
+                },
+                "comments": {
+                    "$commentId": {
+                        ".write": "auth != null && ((!data.exists() && newData.child('authorUid').val() == auth.uid && ($commentId == auth.uid + '_1' || $commentId == auth.uid + '_2' || $commentId == auth.uid + '_3')) || (data.exists() && auth.token.email == 'ukiyo@rekindle.ink'))",
+                        ".validate": "newData.hasChildren(['text', 'authorUid', 'createdAt'])",
+                        "text": {
+                            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1000"
+                        },
+                        "authorName": {
+                            ".validate": "newData.isString()"
+                        },
+                        "authorUid": {
+                            ".validate": "newData.isString() && newData.val() == auth.uid"
+                        },
+                        "authorEmail": {
+                            ".validate": "newData.isString()"
+                        },
+                        "isPro": {
+                            ".validate": "newData.isBoolean()"
+                        },
+                        "createdAt": {
+                            ".validate": "newData.isNumber()"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

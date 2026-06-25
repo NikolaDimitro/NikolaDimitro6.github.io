@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+    
+    <title>Maps</title>
+
+    <!-- MapLibre GL JS (v2 for Kindle compatibility) -->
+    <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
+
+    <!-- Leaflet (Fallback for Kindle/No-WebGL) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+            --overlay-bg: rgba(255, 255, 255, 0.95);
+        }
+
+        body {
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -o-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            font-family: "Geneva", "Verdana", sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #e5e5e5;
+            /* Background managed by settings */
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        /* MAIN WINDOW FRAME */
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            min-height: 90vh;
+            width: 100%;
+            max-width: 900px;
+            position: relative;
+            overflow: hidden;
+            zoom: 1 !important;
+            transform: scale(1) !important;
+        }
+
+        .window.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            max-height: none;
+            border: none;
+            box-shadow: none;
+            z-index: 2000;
+        }
+
+        /* TITLE BAR */
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0 10px;
+            position: relative;
+            flex-shrink: 0;
+            z-index: 1000;
+            zoom: var(--rekindle-scale, 1);
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* CONTROLS (Right side of Title Bar) */
+        .title-controls {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+            display: flex;
+            align-items: center;
+        }
+
+        .icon-btn {
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        .icon-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* Icon State Toggles */
+        .icon-contract {
+            display: none;
+        }
+
+        .window.fullscreen .icon-expand {
+            display: none;
+        }
+
+        .window.fullscreen .icon-contract {
+            display: inline;
+        }
+
+        /* MAP CONTAINER */
+        #map {
+            flex-grow: 1;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            z-index: 1;
+        }
+
+        /* MapLibre specifics */
+        .maplibregl-ctrl-attrib {
+            font-size: 10px;
+        }
+
+        /* OVERLAYS */
+        .overlay-panel {
+            position: absolute;
+            background: white;
+            border: 2px solid black;
+            padding: 10px;
+            z-index: 500;
+            box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
+            zoom: var(--rekindle-scale, 1);
+        }
+
+        /* TOP LEFT: SEARCH & ROUTE */
+        .panel-top-left {
+            top: 50px;
+            left: 10px;
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-top-left>*+* {
+            margin-top: 10px;
+        }
+
+        .tab-row {
+            display: flex;
+            border-bottom: 2px solid black;
+            margin-bottom: 5px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 5px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+            cursor: pointer;
+            background: #eee;
+            border: none;
+        }
+
+        .tab-btn.active {
+            background: black;
+            color: white;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group>*+* {
+            margin-top: 5px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 6px;
+            border: 2px solid black;
+            font-family: inherit;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+
+        .action-row {
+            display: flex;
+        }
+
+        .action-row>*+* {
+            margin-left: 5px;
+        }
+
+        button.sys-btn {
+            flex: 1;
+            background: white;
+            border: 2px solid black;
+            font-weight: bold;
+            padding: 5px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            box-shadow: 1px 1px 0 black;
+        }
+
+        button.sys-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* BOTTOM RIGHT: CONTROLS */
+        .panel-bottom-right {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
+            z-index: 500;
+            zoom: var(--rekindle-scale, 1);
+        }
+
+        .panel-bottom-right>*+* {
+            margin-top: 10px;
+        }
+
+        .d-pad {
+            display: grid;
+            grid-template-columns: 35px 35px 35px;
+            grid-template-rows: 35px 35px 35px;
+            gap: 4px;
+            background: white;
+            border: 2px solid black;
+            padding: 4px;
+            box-shadow: 4px 4px 0 black;
+        }
+
+        .d-btn {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .d-btn:active {
+            background: black;
+            color: white;
+        }
+
+        .d-btn.center {
+            font-size: 0.7rem;
+            background: #eee;
+        }
+
+        .zoom-controls {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border: 2px solid black;
+            padding: 4px;
+            box-shadow: 4px 4px 0 black;
+        }
+
+        .zoom-controls>*+* {
+            margin-top: 4px;
+        }
+
+        .zoom-btn {
+            width: 35px;
+            height: 35px;
+            background: white;
+            border: 2px solid black;
+            font-weight: 900;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .zoom-btn:active {
+            background: black;
+            color: white;
+        }
+
+        /* LOADER */
+        .loader {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #000;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 5px;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .maplibregl-ctrl-bottom-right,
+        .maplibregl-ctrl-bottom-left {
+            display: none !important;
+        }
+
+        .leaflet-bar {
+            display: none !important;
+        }
+
+        /* MODAL STYLES (NEW) */
+        .modal-overlay {
+            position: fixed;
+            /* Changed to fixed for fullscreen */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-box {
+            background: white;
+            border: 4px double black;
+            padding: 20px;
+            width: 80%;
+            max-width: 300px;
+            text-align: center;
+            box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.5);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .modal-content>*+* {
+            margin-top: 10px;
+        }
+
+        .result-item {
+            padding: 8px;
+            border: 2px solid #ccc;
+            width: 100%;
+            box-sizing: border-box;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .result-item:active {
+            background: black;
+            color: white;
+            border-color: black;
+        }
+
+        /* CUSTOM MARKER - SYSTEM 7 STYLE */
+        .system7-marker {
+            background: transparent;
+            border: none;
+        }
+
+        .system7-pin {
+            width: 14px;
+            height: 14px;
+            background: black;
+            border: 2px solid white;
+            box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
+            /* Make it square or slightly rounded */
+            border-radius: 2px;
+            margin-left: -7px;
+            margin-top: -7px;
+        }
+
+        /* POPUP STYLING TO MATCH */
+        /* POPUP STYLING TO MATCH */
+        .maplibregl-popup-content {
+            background: white;
+            border: 2px solid black;
+            border-radius: 0;
+            box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+            padding: 8px 12px;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .maplibregl-popup-tip {
+            border-top-color: black !important;
+            border-bottom-color: black !important;
+        }
+    </style>
+
+    <script src="js/i18n.js"></script>
+    <script src="theme.js?v=18"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+
+            <div class="close-box" onclick="window.location.href='index'">X</div>
+            <span class="title-text" data-i18n="maps.title">Maps</span>
+            <div class="title-controls">
+                <button class="icon-btn" onclick="toggleFullScreen()" title="Full Screen">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                        stroke-linecap="square" stroke-linejoin="miter">
+                        <path class="icon-expand" d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1"></path>
+                        <path class="icon-contract" d="M21 9H15V3M21 3l-6 6M3 15h6v6M3 21l6-6"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="overlay-panel panel-top-left">
+            <div class="tab-row">
+                <button class="tab-btn active" id="tab-find" onclick="setMode('find')"
+                    data-i18n="maps.tab.find">Find</button>
+                <button class="tab-btn" id="tab-route" onclick="setMode('route')"
+                    data-i18n="maps.tab.route">Route</button>
+            </div>
+
+            <div id="mode-find-content">
+                <div class="input-group">
+                    <input type="text" id="search-input" placeholder="Search location..."
+                        data-i18n-placeholder="maps.placeholder.search"
+                        onkeypress="if(event.key==='Enter') searchLocation()">
+                </div>
+                <div class="action-row" style="margin-top:5px;">
+                    <button class="sys-btn" onclick="searchLocation()"><span data-i18n="maps.go">Go</span>
+                        <div class="loader" id="search-loader"></div>
+                    </button>
+                    <button class="sys-btn" onclick="clearMap()" data-i18n="maps.clear">Clear</button>
+                </div>
+            </div>
+
+            <div id="mode-route-content" style="display:none;">
+                <div class="input-group">
+                    <input type="text" id="route-start" placeholder="Start (or leave empty)"
+                        data-i18n-placeholder="maps.placeholder.start">
+                    <input type="text" id="route-end" placeholder="Destination"
+                        data-i18n-placeholder="maps.placeholder.end">
+                </div>
+                <div class="action-row" style="margin-top:5px;">
+                    <button class="sys-btn" onclick="calcRoute()"><span data-i18n="maps.get_route">Get Route</span>
+                        <div class="loader" id="route-loader"></div>
+                    </button>
+                </div>
+                <div id="route-stats" style="font-size:0.8rem; margin-top:5px; text-align:center;"></div>
+            </div>
+
+        </div>
+
+        <div class="panel-bottom-right">
+            <div class="zoom-controls">
+                <button class="zoom-btn" onclick="map.zoomIn()">+</button>
+                <button class="zoom-btn" onclick="map.zoomOut()">-</button>
+            </div>
+
+            <div class="d-pad">
+                <div></div>
+                <button class="d-btn" onclick="panMap(0, -1)">▲</button>
+                <div></div>
+
+                <button class="d-btn" onclick="panMap(-1, 0)">◀</button>
+                <button class="d-btn center" onclick="resetView()">●</button>
+                <button class="d-btn" onclick="panMap(1, 0)">▶</button>
+
+                <div></div>
+                <button class="d-btn" onclick="panMap(0, 1)">▼</button>
+                <div></div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+
+        <div id="selection-modal" class="modal-overlay">
+            <div class="modal-box">
+                <h3 id="selection-title" data-i18n="maps.select_location">Select Location</h3>
+                <div id="selection-content" class="modal-content">
+                </div>
+                <button class="sys-btn" onclick="closeModal('selection-modal')" data-i18n="maps.cancel">Cancel</button>
+            </div>
+        </div>
+
+        <div id="status-modal" class="modal-overlay">
+            <div class="modal-box">
+                <h3 id="status-title" data-i18n="maps.status">Status</h3>
+                <p id="status-message" style="font-size:0.9rem; margin-top:10px;"></p>
+                <button class="sys-btn" onclick="closeModal('status-modal')">OK</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        // --- INTERNAL PROXY (Cloudflare Function) ---
+        const PROXY_ENDPOINT = "/api/maps?url=";
+
+        async function fetchWithProxyFallback(targetUrl, options = {}) {
+            try {
+                // Use internal proxy securely
+                const url = PROXY_ENDPOINT + encodeURIComponent(targetUrl);
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Proxy error: ${res.status}`);
+                return res;
+            } catch (e) {
+                console.error("Internal Proxy fetch failed:", e);
+                // No fallback for internal proxy failure
+                throw e;
+            }
+        }
+
+
+
+
+
+        // --- AUTOCOMPLETE LOGIC ---
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                const context = this;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(context, args), wait);
+            };
+        }
+
+
+
+        let map;
+        let markers = [];
+        let routeLayers = []; // For Leaflet
+        let mapType = 'gl'; // 'gl' or 'leaflet'
+        let currentMode = 'find';
+
+        window.onload = () => {
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            if (window.rekindleApplyDefaultFullscreen) window.rekindleApplyDefaultFullscreen();
+            initMap();
+        };
+
+        async function initMap() {
+            // DECIDE ENGINE
+            // If WebGL is supported, use MapLibre (Vector) -> Smooth, Better.
+            // If NOT supported (Kindle), use Leaflet (Raster) -> Reliable Fallback.
+            if (typeof maplibregl !== 'undefined' && maplibregl.supported && maplibregl.supported()) {
+                console.log("WebGL Supported: Initializing OpenFreeMap (Vector)");
+                mapType = 'gl';
+                await initGLMap();
+            } else {
+                console.log("WebGL Not Supported: Initializing Leaflet (Raster)");
+                mapType = 'leaflet';
+                initLeafletMap();
+            }
+        }
+
+        async function initGLMap() {
+            try {
+                // Vector Style from data.gouv.fr (Toner)
+                // This replaces our local file and OpenFreeMap, but still looks like Toner.
+                const styleUrl = 'https://openmaptiles.geo.data.gouv.fr/styles/maptiler-toner/style.json';
+
+                let defaultCenter = [-74.0060, 40.7128]; // Default NYC [Lon, Lat]
+                let defaultZoom = 13;
+
+                try {
+                    const manualLoc = JSON.parse(localStorage.getItem('rekindle_location_manual'));
+                    if (manualLoc && manualLoc.lat && manualLoc.lon) {
+                        defaultCenter = [parseFloat(manualLoc.lon), parseFloat(manualLoc.lat)];
+                    }
+                } catch (e) {
+                    console.warn("Failed to load manual location", e);
+                }
+
+                map = new maplibregl.Map({
+                    container: 'map',
+                    style: styleUrl, // Direct URL works now
+                    center: defaultCenter,
+                    zoom: defaultZoom,
+                    attributionControl: false, // We add it manually below
+                    // E-ink optimizations
+                    fadeDuration: 0,
+                    inertia: false
+                });
+
+                // ERROR HANDLING -> Fallback to Leaflet if GL fails mid-stream
+                map.on('error', (e) => {
+                    console.error("Map Error:", e);
+                    // Critical failure? Maybe fallback is needed even here, 
+                    // but usually supported() catches the big ones.
+                    if (e.error && e.error.message && e.error.message.includes("WebGL")) {
+                        document.getElementById('map').innerHTML = ''; // Clear container
+                        mapType = 'leaflet';
+                        initLeafletMap();
+                        return;
+                    }
+
+                    if (e.error && e.error.status === 404) {
+                        console.warn("Missing resource:", e.error.url);
+                    } else if (!e.error || e.error.status !== 404) {
+                        openStatusModal("Map Error", (e.error ? e.error.message : "An unknown error occurred."));
+                    }
+                });
+
+                map.on('load', () => {
+                    console.log("Map Fully Loaded");
+                    map.resize(); // Force resize to ensure canvas is correct
+                });
+
+                map.addControl(new maplibregl.AttributionControl({
+                    compact: true
+                }));
+            } catch (e) {
+                console.error("Map Init Failed", e);
+                // Try fallback
+                document.getElementById('map').innerHTML = '';
+                mapType = 'leaflet';
+                initLeafletMap();
+            }
+        }
+
+        function initLeafletMap() {
+            try {
+                // Get Start Location
+                let startLat = 40.7128;
+                let startLon = -74.0060;
+                try {
+                    const manualLoc = JSON.parse(localStorage.getItem('rekindle_location_manual'));
+                    if (manualLoc && manualLoc.lat && manualLoc.lon) {
+                        startLat = parseFloat(manualLoc.lat);
+                        startLon = parseFloat(manualLoc.lon);
+                    }
+                } catch (e) { }
+
+                // Init Leaflet
+                map = L.map('map', {
+                    zoomControl: false,
+                    attributionControl: false,
+                    zoomAnimation: false, // E-ink optimization
+                    fadeAnimation: false,
+                    markerZoomAnimation: false
+                }).setView([startLat, startLon], 13);
+
+                // Add Stadia/Stamen Toner Layer
+                // API Key: d03c70b5-65ef-4dcf-ae08-a5bfa5c52010
+                L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}{r}.png?api_key=d03c70b5-65ef-4dcf-ae08-a5bfa5c52010', {
+                    minZoom: 0,
+                    maxZoom: 20,
+                    attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
+                }).addTo(map);
+
+                // Add Attribution manually if needed, or stick to Stadia requirements? 
+                // We disabled logic control, let's add compact one.
+                L.control.attribution({ prefix: false }).addTo(map);
+
+            } catch (e) {
+                console.error("Leaflet Init Failed", e);
+                openStatusModal("Error", "Could not load fallback map. " + e.message);
+            }
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${mode}`).classList.add('active');
+            document.getElementById('mode-find-content').style.display = mode === 'find' ? 'block' : 'none';
+            document.getElementById('mode-route-content').style.display = mode === 'route' ? 'block' : 'none';
+        }
+
+        function clearMap() {
+            // Clear Markers
+            markers.forEach(m => m.remove());
+            markers = [];
+
+            if (mapType === 'gl') {
+                // Clear route layers and source
+                if (map.getLayer('route-bottom')) map.removeLayer('route-bottom');
+                if (map.getLayer('route-middle')) map.removeLayer('route-middle');
+                if (map.getLayer('route-top')) map.removeLayer('route-top');
+                if (map.getSource('route')) map.removeSource('route');
+            } else {
+                // Leaflet Clear
+                routeLayers.forEach(l => map.removeLayer(l));
+                routeLayers = [];
+            }
+
+            document.getElementById('search-input').value = '';
+            document.getElementById('route-stats').innerText = '';
+        }
+
+        // --- MODAL FUNCTIONS ---
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function openStatusModal(title, msg) {
+            document.getElementById('status-title').innerText = title;
+            document.getElementById('status-message').innerText = msg;
+            document.getElementById('status-modal').style.display = 'flex';
+        }
+
+        function openSelectionModal(results) {
+            const content = document.getElementById('selection-content');
+            content.innerHTML = '';
+            document.getElementById('selection-title').innerText = window.t('maps.select_location', "Select Location");
+
+            results.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'result-item';
+                div.innerText = item.display_name;
+                div.onclick = () => {
+                    jumpTo(JSON.parse(div.dataset.item));
+                    closeModal('selection-modal');
+                };
+                div.dataset.item = JSON.stringify(item);
+                content.appendChild(div);
+            });
+            document.getElementById('selection-modal').style.display = 'flex';
+        }
+
+        function getViewboxParams() {
+            if (!map) return '';
+            const b = map.getBounds();
+            // viewbox=west,north,east,south
+            return `&viewbox=${b.getWest()},${b.getNorth()},${b.getEast()},${b.getSouth()}`;
+        }
+
+        async function searchLocation() {
+            const query = document.getElementById('search-input').value.trim();
+            if (!query) return;
+
+            const loader = document.getElementById('search-loader');
+            loader.style.display = 'inline-block';
+
+            try {
+                const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&accept-language=en${getViewboxParams()}`;
+                const res = await fetchWithProxyFallback(nominatimUrl);
+                const data = await res.json();
+
+                if (data.length === 0) {
+                    openStatusModal("Not Found", "No results found matching your query.");
+                } else if (data.length === 1) {
+                    jumpTo(data[0]);
+                } else {
+                    openSelectionModal(data);
+                }
+            } catch (e) {
+                openStatusModal("Search Error", e.message || "Search failed.");
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        function createSystem7Marker(lngLat) {
+            if (mapType === 'leaflet') {
+                // Leaflet uses [Lat, Lng] order for constructor, but we pass [Lon, Lat] because GeoJSON.
+                // Reversing for Leaflet call
+                const lat = lngLat[1];
+                const lon = lngLat[0];
+
+                const icon = L.divIcon({
+                    className: 'system7-marker', // Reuse existing CSS class
+                    html: '<div class="system7-pin"></div>',
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                });
+                return L.marker([lat, lon], { icon: icon });
+            } else {
+                // MapLibre
+                const el = document.createElement('div');
+                el.className = 'system7-marker';
+                el.innerHTML = '<div class="system7-pin"></div>';
+                // Explicit size for GL marker container to ensure centering
+                el.style.width = '14px';
+                el.style.height = '14px';
+                el.style.display = 'flex';
+                el.style.alignItems = 'center';
+                el.style.justifyContent = 'center';
+
+                return new maplibregl.Marker({
+                    element: el,
+                    anchor: 'center' // Center of the 14x14 box
+                }).setLngLat(lngLat);
+            }
+        }
+
+        function jumpTo(item) {
+            // Clear existing
+            clearMap();
+
+            const lat = parseFloat(item.lat);
+            const lon = parseFloat(item.lon);
+
+            if (mapType === 'leaflet') {
+                map.setView([lat, lon], 15);
+                const marker = createSystem7Marker([lon, lat]).addTo(map);
+                marker.bindPopup(item.display_name.split(',')[0]).openPopup();
+                markers.push(marker);
+            } else {
+                // Pan
+                map.jumpTo({ center: [lon, lat], zoom: 15 });
+
+                // Add Marker
+                const marker = createSystem7Marker([lon, lat])
+                    .setPopup(new maplibregl.Popup({ offset: 15 }).setText(item.display_name.split(',')[0]))
+                    .addTo(map);
+
+                markers.push(marker);
+                marker.togglePopup();
+            }
+        }
+
+        async function calcRoute() {
+            let start = document.getElementById('route-start').value.trim();
+            const end = document.getElementById('route-end').value.trim();
+
+            if (!end) return openStatusModal("Input Required", "Destination is required.");
+
+            const loader = document.getElementById('route-loader');
+            loader.style.display = 'inline-block';
+            clearMap();
+
+            try {
+                // 1. Geocode Start/End
+                let startCoords = null; // [lon, lat]
+                if (!start) {
+                    const center = map.getCenter();
+                    startCoords = [center.lng, center.lat];
+                } else {
+                    const nominatimStartUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(start)}&accept-language=en${getViewboxParams()}`;
+                    const resS = await fetchWithProxyFallback(nominatimStartUrl);
+                    const dataS = await resS.json();
+                    if (!dataS || dataS.length === 0) throw new Error("Start location not found");
+                    startCoords = [parseFloat(dataS[0].lon), parseFloat(dataS[0].lat)];
+                }
+
+                const nominatimEndUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(end)}&accept-language=en${getViewboxParams()}`;
+                const resE = await fetchWithProxyFallback(nominatimEndUrl);
+                const dataE = await resE.json();
+                if (!dataE || dataE.length === 0) throw new Error("Destination not found");
+                const endCoords = [parseFloat(dataE[0].lon), parseFloat(dataE[0].lat)];
+
+                // Add Markers (Hybrid)
+                const startM = createSystem7Marker(startCoords).addTo(map);
+                const endM = createSystem7Marker(endCoords).addTo(map);
+
+                if (mapType === 'leaflet') {
+                    startM.bindPopup("Start");
+                    endM.bindPopup("End");
+                } else {
+                    startM.setPopup(new maplibregl.Popup().setText("Start"));
+                    endM.setPopup(new maplibregl.Popup().setText("End"));
+                }
+                markers.push(startM, endM);
+
+                // 2. OSRM Routing
+                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${startCoords[0]},${startCoords[1]};${endCoords[0]},${endCoords[1]}?overview=full&geometries=geojson`;
+                const routeRes = await fetchWithProxyFallback(osrmUrl);
+                const routeData = await routeRes.json();
+
+                if (!routeData.code || routeData.code !== 'Ok') throw new Error("Routing failed (No path found)");
+
+                const route = routeData.routes[0];
+                const geojson = route.geometry;
+
+                // 3. Add Source & Layers for Route
+                if (mapType === 'leaflet') {
+                    // Leaflet Rendering (White Outline -> Black Inner -> White Thin)
+                    const bottom = L.geoJSON(geojson, { style: { color: 'white', weight: 10, lineCap: 'round', opacity: 1 } }).addTo(map);
+                    const middle = L.geoJSON(geojson, { style: { color: 'black', weight: 6, lineCap: 'round', opacity: 1 } }).addTo(map);
+                    const top = L.geoJSON(geojson, { style: { color: 'white', weight: 2, lineCap: 'round', opacity: 1 } }).addTo(map);
+
+                    routeLayers.push(bottom, middle, top);
+
+                    // Fit Bounds
+                    const leafletBounds = L.geoJSON(geojson).getBounds();
+                    map.fitBounds(leafletBounds, { padding: [50, 50] });
+
+                } else {
+                    if (map.getSource('route')) map.removeSource('route');
+
+                    map.addSource('route', {
+                        'type': 'geojson',
+                        'data': {
+                            'type': 'Feature',
+                            'properties': {},
+                            'geometry': geojson
+                        }
+                    });
+
+                    // Style: White Outline -> Black Inner -> White Center (System 7)
+                    map.addLayer({
+                        'id': 'route-bottom',
+                        'type': 'line',
+                        'source': 'route',
+                        'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                        'paint': { 'line-color': '#ffffff', 'line-width': 10 }
+                    });
+                    map.addLayer({
+                        'id': 'route-middle',
+                        'type': 'line',
+                        'source': 'route',
+                        'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                        'paint': { 'line-color': '#000000', 'line-width': 6 }
+                    });
+                    map.addLayer({
+                        'id': 'route-top',
+                        'type': 'line',
+                        'source': 'route',
+                        'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                        'paint': { 'line-color': '#ffffff', 'line-width': 2 }
+                    });
+
+                    // Fit Bounds
+                    const bounds = new maplibregl.LngLatBounds();
+                    geojson.coordinates.forEach(coord => bounds.extend(coord));
+                    map.fitBounds(bounds, { padding: 50 });
+                }
+
+                // Stats
+                const timeMin = Math.round(route.duration / 60);
+                if (window.rekindleConvertDistance) {
+                    document.getElementById('route-stats').innerText = window.rekindleConvertDistance(route.distance) + ` • ~${timeMin} min`;
+                } else {
+                    const distKm = (route.distance / 1000).toFixed(1);
+                    document.getElementById('route-stats').innerText = `${distKm} km • ~${timeMin} min`;
+                }
+
+            } catch (e) {
+                openStatusModal("Routing Failed", e.message || "Route calculation failed.");
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        function panMap(dx, dy) {
+            // MapLibre uses pixels for panBy. Leaflet does too.
+            // dx, dy are directional inputs (1, -1), let's scale them up.
+            map.panBy([dx * 100, dy * 100], { duration: 0, animate: false });
+        }
+
+        function resetView() {
+            // Fallback: Saved Location -> Default NYC
+            let dest = [-74.0060, 40.7128]; // [Lon, Lat]
+            try {
+                const saved = localStorage.getItem('rekindle_location_manual');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.lat && parsed.lon) {
+                        dest = [parseFloat(parsed.lon), parseFloat(parsed.lat)];
+                    }
+                }
+            } catch (e) { console.warn("Error reading saved loc", e); }
+
+            if (mapType === 'leaflet') {
+                map.setView([dest[1], dest[0]], 13);
+            } else {
+                map.jumpTo({ center: dest, zoom: 13 });
+            }
+        }
+
+    </script>
+
+    <script>
+
+
+
+
+
+        function toggleFullScreen() {
+            document.querySelector('.window').classList.toggle('fullscreen');
+            if (map) {
+                setTimeout(() => { map.resize(); }, 200);
+            }
+        }
+    </script>
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675"
+        data-utcoffset="11"></script>
+
+
+</body>
+
+</html>

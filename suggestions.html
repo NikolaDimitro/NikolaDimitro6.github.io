@@ -1,0 +1,1922 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+
+    <title>Suggestions</title>
+    <style>
+        /* SYSTEM 7 AESTHETICS (Shared with KindleChat/others) */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+            --stripe-pattern: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+        }
+
+        body {
+            image-rendering: pixelated;
+            font-family: "Geneva", "Verdana", sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #e5e5e5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            min-height: 90vh;
+            width: 100%;
+            max-width: 800px;
+            /* Slightly wider for lists */
+            position: relative;
+        }
+
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0 10px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: var(--stripe-pattern);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* CONTROLS (Right side of Title Bar) */
+        .title-controls {
+            position: absolute;
+            right: 10px;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+        }
+
+        .icon-btn {
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            padding: 0;
+            flex-shrink: 0;
+        }
+
+        .icon-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* Icon State Toggles */
+        .icon-contract {
+            display: none;
+        }
+
+        .window.fullscreen .icon-expand {
+            display: none;
+        }
+
+        .window.fullscreen .icon-contract {
+            display: inline;
+        }
+
+        .window.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: calc(100vw / var(--rekindle-scale, 1));
+            height: calc(100vh / var(--rekindle-scale, 1));
+            max-width: none;
+            max-height: none;
+            border: none;
+            box-shadow: none;
+            z-index: 2000;
+            transform-origin: top left !important;
+        }
+
+        /* APP LAYOUT */
+        #app-content {
+            flex-grow: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: #fafafa;
+        }
+
+        /* HEADER / TOOLBAR */
+        .toolbar {
+            padding: 10px;
+            border-bottom: 2px solid black;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #eee;
+        }
+
+        .sys-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 5px 15px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sys-btn:active {
+            background: black;
+            color: white;
+            box-shadow: none;
+            transform: translate(2px, 2px);
+        }
+
+        /* LIST VIEW */
+        #suggestion-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #suggestion-list>*+* {
+            margin-top: 10px;
+        }
+
+        .suggestion-item {
+            border: 2px solid black;
+            padding: 10px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 #ccc;
+        }
+
+        .sugg-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 5px;
+        }
+
+        .sugg-title {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .sugg-meta {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+
+
+        /* DETAIL VIEW */
+        #detail-view {
+            display: none;
+            /* Hidden by default */
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .detail-content {
+            padding: 20px;
+            overflow-y: auto;
+            flex-grow: 1;
+            background: white;
+        }
+
+        .comment-section {
+            border-top: 2px solid black;
+            background: #eee;
+            padding: 10px;
+            height: 40%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .comment-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            /* Inset look */
+            background: #fafafa;
+            padding: 5px;
+        }
+
+        .comment-item {
+            border-bottom: 1px dotted #ccc;
+            padding: 5px 0;
+            font-size: 0.9rem;
+        }
+
+        .comment-author {
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+
+        .comment-input {
+            display: flex;
+            align-items: center;
+            border: 2px solid black;
+            background: white;
+            padding: 5px 10px;
+            margin-top: 5px;
+        }
+
+        /* MODALS */
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-box {
+            background: white;
+            border: 2px solid black;
+            box-shadow: 8px 8px 0 black;
+            padding: 20px;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .modal-input {
+            width: 100%;
+            margin: 10px 0;
+            padding: 8px;
+            border: 2px solid black;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        #login-overlay {
+            display: none;
+            position: fixed;
+            top: 35px;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* VOTE BUTTON IN DETAIL */
+        .vote-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 5px 10px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .vote-btn>*+* {
+            margin-left: 5px;
+        }
+
+        .vote-btn.voted {
+            background: black;
+            color: white;
+        }
+
+        .vote-badge {
+            background: white;
+            color: black;
+            border: 2px solid black;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .vote-badge:hover {
+            background: #eee;
+        }
+
+        .vote-badge.voted {
+            background: black;
+            color: white;
+        }
+
+        /* STATUS BADGE */
+        .status-badge {
+            background: #999;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-right: 5px;
+            text-transform: uppercase;
+        }
+
+        .problem-badge {
+            background: black;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-right: 5px;
+            text-transform: uppercase;
+        }
+
+        .progress-badge {
+            background: #007bff;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-right: 5px;
+            text-transform: uppercase;
+        }
+
+        .translation-badge {
+            background: #6f42c1;
+            /* Purple */
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-right: 5px;
+            text-transform: uppercase;
+        }
+
+        .dev-badge {
+            background: #000;
+            color: #fff;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+            font-weight: bold;
+            margin-right: 5px;
+            vertical-align: middle;
+            border: 1px solid #fff;
+        }
+
+        /* TABS */
+        .tab-bar {
+            display: flex;
+            background: #eee;
+            border-bottom: 2px solid black;
+            padding-left: 10px;
+        }
+
+        .tab {
+            padding: 8px 15px;
+            border: 2px solid black;
+            border-bottom: none;
+            margin-right: 5px;
+            background: #ccc;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            position: relative;
+            top: 2px;
+            /* Push down to overlap border */
+        }
+
+        .tab.active {
+            background: #fafafa;
+            /* Match app-content bg */
+            border-bottom: 2px solid #fafafa;
+            /* Hide line */
+            z-index: 10;
+        }
+
+        .tab:hover:not(.active) {
+            background: #ddd;
+        }
+
+        /* DONE ITEM STYLE */
+        .suggestion-item.done {
+            opacity: 0.6;
+            background: #f0f0f0;
+        }
+
+        .suggestion-item.done .sugg-title {
+            text-decoration: line-through;
+        }
+
+        /* SUPPORTER / PRO STYLING */
+        .suggestion-item.supporter {
+            background: black !important;
+            color: white !important;
+            border: 2px solid black !important;
+            box-shadow: 4px 4px 0px #999 !important;
+        }
+
+        .suggestion-item.supporter .sugg-meta {
+            color: #ccc;
+        }
+
+        .suggestion-item.supporter .status-badge {
+            border-color: white !important;
+        }
+
+        .supporter-crown {
+            width: 14px;
+            height: 14px;
+            display: inline-block;
+            vertical-align: middle;
+            fill: black;
+            margin-right: 4px;
+        }
+
+        .suggestion-item.supporter .supporter-crown {
+            fill: white;
+        }
+
+        .comment-item.supporter .comment-author {
+            color: #000;
+            /* Keep author name black or adjust if needed */
+        }
+
+        .comment-delete-btn {
+            background: white;
+            border: 1px solid #000;
+            padding: 0 4px;
+            margin-left: 8px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            box-shadow: 1px 1px 0 black;
+            line-height: 1;
+        }
+
+        .comment-delete-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+    </style>
+
+    <link rel="stylesheet" href="css/custom-select.css">
+
+    <!-- FIREBASE -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="theme.js?v=18"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/custom-select.js"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="window.location.href='index'">X</div>
+            <span class="title-text" data-i18n="suggestions.title">Suggestions</span>
+            <div class="title-controls">
+                <button class="icon-btn" onclick="toggleFullScreen()" title="Full Screen">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                        stroke-linecap="square" stroke-linejoin="miter">
+                        <path class="icon-expand" d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1"></path>
+                        <path class="icon-contract" d="M21 9H15V3M21 3l-6 6M3 15h6v6M3 21l6-6"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- MAIN VIEW (LIST) -->
+        <div id="app-content">
+            <div class="toolbar" id="main-toolbar">
+                <div style="display: flex; align-items: center">
+                    <span style="font-weight:bold;" data-i18n="suggestions.view">View:</span>
+                    <select id="sort-select" onchange="changeSort()"
+                        style="font-family:inherit; font-size:0.8rem; border:2px solid black; padding:3px;; margin-left: 10px">
+                        <option value="popular" data-i18n="suggestions.sort.popular">Popular</option>
+                        <option value="newest" data-i18n="suggestions.sort.newest">Newest</option>
+                        <option value="mine" data-i18n="suggestions.sort.mine">My Suggestions</option>
+                    </select>
+                </div>
+                <input type="text" id="search-input" oninput="onSearchInput()" placeholder="Search..."
+                    style="font-family:inherit; font-size:0.8rem; border:2px solid black; padding:3px; margin: 0 10px; flex-grow: 1; min-width: 0;"
+                    data-i18n-placeholder="suggestions.ph.search">
+                <button class="sys-btn" onclick="openCreateModal()" data-i18n="suggestions.btn.new">+ New Idea</button>
+            </div>
+
+            <!-- TAB BAR -->
+            <div class="tab-bar" id="tab-bar">
+                <div class="tab active" onclick="switchTab('suggestion')" data-i18n="suggestions.tab.suggestion">
+                    Suggestions
+                </div>
+                <div class="tab" onclick="switchTab('problem')" data-i18n="suggestions.tab.problem">Problems</div>
+                <div class="tab" onclick="switchTab('translation')" data-i18n="suggestions.tab.translation">Translation
+                </div>
+                <div style="flex-grow:1;"></div> <!-- Spacer -->
+                <div class="tab" onclick="switchTab('deferred')" data-i18n="suggestions.tab.deferred">Deferred</div>
+                <div class="tab" onclick="switchTab('done')" data-i18n="suggestions.tab.done">Done</div>
+                <div class="tab" onclick="switchTab('closed')" data-i18n="suggestions.tab.closed">Closed</div>
+            </div>
+
+            <div id="suggestion-list">
+                <!-- Items injected here -->
+                <div style="text-align:center; padding:20px; color:#666;" data-i18n="suggestions.msg.loading">Loading...
+                </div>
+            </div>
+
+            <!-- DETAIL VIEW (Overlay inside app-content) -->
+            <div id="detail-view">
+                <div class="toolbar">
+                    <button class="sys-btn" onclick="closeDetailView()" data-i18n="suggestions.btn.back">← Back</button>
+                    <span id="detail-title-bar"
+                        style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 60%;">...</span>
+                    <div></div> <!-- spacer -->
+                </div>
+
+                <div class="detail-content">
+                    <h2 id="detail-title" style="margin-top:0;">Title</h2>
+                    <div class="sugg-meta" id="detail-meta">by Author</div>
+                    <p id="detail-desc" style="white-space: pre-wrap; line-height: 1.5;"></p>
+
+                    <button id="detail-vote-btn" class="vote-btn" onclick="toggleVote()">
+                        <span data-i18n="suggestions.btn.upvote">▲ Upvote</span>
+                        <span id="detail-vote-count">0</span>
+                    </button>
+
+                    <div style="margin-top: 20px; display: flex; justify-content: center; flex-wrap: wrap"
+                        id="admin-controls">
+                        <!-- Dynamic Admin Buttons will go here -->
+                        <button id="detail-done-btn" class="vote-btn" onclick="cycleStatus()"
+                            style="display:none; background:white; color:black; border:1px solid #ccc;">
+                            <span>✓ Status</span>
+                        </button>
+                        <button id="detail-type-btn" class="vote-btn" onclick="toggleType()"
+                            style="display:none;; margin-left: 10px">
+                            <span>⇄ Switch Type</span>
+                        </button>
+                        <button id="detail-cat-btn" class="vote-btn" onclick="openEditCategoryModal()"
+                            style="display:none;; margin-left: 10px">
+                            <span>✎ Edit Cat</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="comment-section">
+                    <div style="font-weight:bold; margin-bottom:5px;" data-i18n="suggestions.label.comments">Comments
+                    </div>
+                    <div class="comment-list" id="detail-comments">
+                        <!-- comments -->
+                    </div>
+                    <form class="comment-input" onsubmit="event.preventDefault(); postComment();">
+                        <input type="text" id="comment-input" placeholder="Add a comment..." maxlength="1000"
+                            style="flex:1; border:none; outline:none; background:transparent;"
+                            data-i18n-placeholder="suggestions.ph.comment">
+                        <button type="submit"
+                            style="background:transparent; border:none; color:#333; cursor:pointer;">➤</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="login-overlay">
+            <h2 data-i18n="suggestions.msg.login_required">Please Log In</h2>
+            <p data-i18n="suggestions.msg.login_desc">You need to be logged in to enable suggestions.</p>
+            <button class="sys-btn" onclick="window.location.href='index?login=true'"
+                data-i18n="suggestions.btn.login">Log In</button>
+        </div>
+    </div>
+
+    <!-- CREATE MODAL -->
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <h3 data-i18n="suggestions.modal.new.title">New Suggestion</h3>
+            <div style="margin-bottom: 10px; display: flex; justify-content: center">
+                <label style="cursor: pointer; display: flex; align-items: center">
+                    <input type="radio" name="sugg-type" value="suggestion" checked="" onchange="updateFormFields()">
+                    <span data-i18n="suggestions.type.suggestion" style="margin-left: 5px">Suggestion</span>
+                </label>
+                <label style="cursor: pointer; display: flex; align-items: center; margin-left: 15px">
+                    <input type="radio" name="sugg-type" value="problem" onchange="updateFormFields()">
+                    <span data-i18n="suggestions.type.problem" style="margin-left: 5px">Problem</span>
+                </label>
+                <label style="cursor: pointer; display: flex; align-items: center; margin-left: 15px">
+                    <input type="radio" name="sugg-type" value="translation" onchange="updateFormFields()">
+                    <span data-i18n="suggestions.type.translation" style="margin-left: 5px">Translation</span>
+                </label>
+            </div>
+
+            <select id="new-category" class="modal-input" style="margin-bottom:10px;">
+                <!-- Populated via JS -->
+            </select>
+
+            <input type="text" id="new-device" class="modal-input"
+                placeholder="Device (e.g. Kindle Paperwhite 11th Gen)" maxlength="100" style="display:none;"
+                data-i18n-placeholder="suggestions.ph.device">
+
+            <input type="text" id="new-app" class="modal-input" placeholder="App it applies to (e.g. Chess)"
+                maxlength="100" style="display:none;" data-i18n-placeholder="suggestions.ph.app">
+
+            <input type="text" id="new-title" class="modal-input" placeholder="Title (e.g. Add Calculator)"
+                maxlength="100" data-i18n-placeholder="suggestions.ph.title">
+            <textarea id="new-desc" class="modal-input" placeholder="Description..."
+                style="height:200px; resize:vertical;" maxlength="5000"
+                data-i18n-placeholder="suggestions.ph.desc"></textarea>
+            <div style="margin-top: 15px; display: flex; justify-content: center">
+                <button id="submit-sugg-btn" class="sys-btn" onclick="submitSuggestion()"
+                    data-i18n="suggestions.btn.submit">Submit</button>
+                <button class="sys-btn" onclick="closeModal()" data-i18n="reddit.btn.cancel"
+                    style="margin-left: 10px">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT CONTENT MODAL -->
+    <div id="edit-content-overlay"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255, 255, 255, 0.95); z-index:10001; align-items:center; justify-content:center;">
+        <div class="modal-box">
+            <h3>Edit Suggestion</h3>
+            <input type="text" id="edit-title" class="modal-input" placeholder="Title" maxlength="100">
+            <textarea id="edit-desc" class="modal-input" placeholder="Description..."
+                style="height:200px; resize:vertical;" maxlength="5000"></textarea>
+            <div style="margin-top: 15px; display: flex; justify-content: center">
+                <button class="sys-btn" onclick="submitEditContent()">Save</button>
+                <button class="sys-btn" onclick="document.getElementById('edit-content-overlay').style.display='none'"
+                    style="margin-left: 10px">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MESSAGE MODAL -->
+    <div id="msg-modal-overlay"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10002; align-items:center; justify-content:center;">
+        <div class="modal-box">
+            <h3 id="msg-title" style="margin-top:0;">Message</h3>
+            <p id="msg-body">Text</p>
+            <button class="sys-btn" onclick="closeMsgModal()" style="margin-top:10px;"
+                data-i18n="reddit.btn.ok">OK</button>
+        </div>
+    </div>
+
+    <!-- ADMIN EDIT CATEGORY MODAL -->
+    <div id="edit-cat-overlay"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10002; align-items:center; justify-content:center;">
+        <div class="modal-box">
+            <h3>Edit Category</h3>
+            <select id="edit-cat-select" class="modal-input"></select>
+            <div style="margin-top: 15px; display: flex; justify-content: center">
+                <button class="sys-btn" onclick="submitEditCategory()">Save</button>
+                <button class="sys-btn" onclick="document.getElementById('edit-cat-overlay').style.display='none'"
+                    style="margin-left: 10px">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- APP LOGIC ---
+
+        // GLOBAL ERROR HANDLER FOR KINDLE DEBUGGING
+        window.onerror = function (msg, url, lineNo, columnNo, error) {
+            var string = msg.toLowerCase();
+            var substring = "script error";
+            if (string.indexOf(substring) > -1) {
+                // creating a modal might fail if dom not ready, fallback to alert or console
+                console.error('Script Error: See Console for Details');
+            } else {
+                var message = [
+                    'Message: ' + msg,
+                    'URL: ' + url,
+                    'Line: ' + lineNo,
+                    'Column: ' + columnNo,
+                    'Error object: ' + JSON.stringify(error)
+                ].join(' - ');
+
+                console.error(message);
+
+                // Try to use modal if available
+                if (window.showMessage) {
+                    window.showMessage("Error", "An unexpected error occurred.");
+                } else {
+                    // Fallback for very early errors
+                    // alert(message);
+                }
+
+                // If stuck on loading, show error there
+                var listEl = document.getElementById('suggestion-list');
+                if (listEl && listEl.innerText.indexOf('Loading...') !== -1) {
+                    listEl.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Error Loading App:<br>' + msg + '</div>';
+                }
+            }
+            return false;
+        };
+
+        // LOADING TIMEOUT
+        setTimeout(function () {
+            var listEl = document.getElementById('suggestion-list');
+            if (listEl && listEl.innerText.indexOf('Loading...') !== -1) {
+                listEl.innerHTML = '<div style="text-align:center; padding:20px;">Taking a while...<br><br><button class="sys-btn" onclick="window.location.reload()">Reload</button></div>';
+            }
+        }, 15000);
+
+        // Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY7x7vVmlYUyVZNLuCCmIQYa6PWFVfZqQ",
+            authDomain: "rekindle-dd1fa.firebaseapp.com",
+            projectId: "rekindle-dd1fa",
+            storageBucket: "rekindle-dd1fa.firebasestorage.app",
+            messagingSenderId: "748026882518",
+            appId: "1:748026882518:web:6877dd4329318070c11c77",
+            databaseURL: "https://rekindle-dd1fa-default-rtdb.firebaseio.com/"
+        };
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+
+
+            // Note: Persistence disabled due to IndexedDB hangs on some browsers (Safari)
+
+            // db.enablePersistence({ synchronizeTabs: true }) ...
+            const auth = firebase.auth();
+            const rtdb = firebase.database();
+
+            let currentUser = null;
+            let currentSuggestionId = null;
+            let commentsRefListener = null;
+            let isPro = false;
+            let supporterUsers = {};
+
+            // AUTH LISTENER
+            auth.onAuthStateChanged(function (user) {
+                if (user) {
+                    currentUser = user;
+                    // Check Pro Status
+                    isPro = (localStorage.getItem('rekindle_is_pro') !== 'false');
+                    if (currentUser.email === 'ukiyo@rekindle.ink') {
+                        isPro = true;
+                    }
+
+                    document.getElementById('login-overlay').style.display = 'none';
+                    fetchSupporters(loadSuggestions);
+                } else {
+                    currentUser = null;
+                    document.getElementById('login-overlay').style.display = 'flex';
+                }
+            });
+
+            function fetchSupporters(callback) {
+                db.collection('config').doc('supporters').get().then(function (doc) {
+                    if (doc.exists) {
+                        var data = doc.data();
+                        supporterUsers = {};
+                        var now = new Date();
+                        // Normalise key: strip email domain so "user@x.com" → "user"
+                        function normaliseName(key) {
+                            return (key && key.indexOf('@') > -1) ? key.split('@')[0] : key;
+                        }
+                        // Handle new map format and legacy array formats
+                        if (data.list && Array.isArray(data.list)) {
+                            // Legacy plain array — no expiry info, treat all as active
+                            for (var i = 0; i < data.list.length; i++) {
+                                var n = normaliseName(data.list[i]);
+                                if (n) supporterUsers[n] = true;
+                            }
+                        } else if (data.usernames && Array.isArray(data.usernames)) {
+                            // Legacy plain array — no expiry info, treat all as active
+                            for (var i = 0; i < data.usernames.length; i++) {
+                                var n = normaliseName(data.usernames[i]);
+                                if (n) supporterUsers[n] = true;
+                            }
+                        } else {
+                            // Map format: keys are usernames/emails, values have expiresAt + isLifetime
+                            for (var key in data) {
+                                if (key === 'usernames' || key === 'list') continue;
+                                var val = data[key];
+                                var isActive = false;
+                                if (val && typeof val === 'object') {
+                                    if (val.isLifetime === true) {
+                                        isActive = true;
+                                    } else if (val.expiresAt) {
+                                        var expiry = val.expiresAt.toDate ? val.expiresAt.toDate() : new Date(val.expiresAt);
+                                        isActive = expiry > now;
+                                    }
+                                } else {
+                                    isActive = !!val; // legacy boolean value
+                                }
+                                if (isActive) {
+                                    var n = normaliseName(key);
+                                    if (n) supporterUsers[n] = true;
+                                }
+                            }
+                        }
+                    }
+                    // Re-evaluate isPro for the current user against live supporter data
+                    if (currentUser) {
+                        var displayName = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : '');
+                        isPro = !!supporterUsers[displayName] || (currentUser.email === 'ukiyo@rekindle.ink');
+                    }
+                    if (callback) callback();
+                }).catch(function (error) {
+                    console.error("Error loading supporters:", error);
+                    if (callback) callback(); // Still load suggestions if supporters fail
+                });
+            }
+
+            const CROWN_SVG = '<svg class="supporter-crown" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M2 4L5 18H19L22 4L15 11L12 4L9 11L2 4Z"/></svg>';
+
+
+
+            // Call immediately (like reading.html) and on load
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            window.onload = function () {
+                if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            };
+
+            function sanitizeBackgroundImage(imageString) {
+                if (!imageString) return '';
+                if (imageString.startsWith('url("data:image/png;base64,')) {
+                    return imageString;
+                }
+                if (imageString.startsWith('url("') && imageString.endsWith('")')) {
+                    const url = imageString.substring(5, imageString.length - 2);
+                    if ((url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) && !url.includes('javascript:')) {
+                        return imageString;
+                    }
+                }
+                return '';
+            }
+
+            let allSuggestions = []; // Cache for client-side sorting
+            let allSearchSuggestions = null;
+            let currentSort = 'popular';
+            let currentFilter = 'suggestion'; // Default to suggestions
+
+            let searchTimeout = null;
+            window.onSearchInput = function() {
+                const searchEl = document.getElementById('search-input');
+                const searchBoxValue = searchEl ? searchEl.value.toLowerCase().trim() : '';
+
+                renderList(); // Render immediately with local tab data
+
+                // Fetch global suggestions if performing a search and not yet loaded
+                if (searchBoxValue.length >= 2 && !allSearchSuggestions) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(function() {
+                        const listEl = document.getElementById('suggestion-list');
+                        if (!document.getElementById('search-loading')) {
+                            const loadingDiv = document.createElement('div');
+                            loadingDiv.style.textAlign = 'center';
+                            loadingDiv.style.padding = '10px';
+                            loadingDiv.style.color = '#666';
+                            loadingDiv.innerText = window.t ? window.t('suggestions.msg.loading') || 'Loading global results...' : 'Loading global results...';
+                            loadingDiv.id = 'search-loading';
+                            listEl.appendChild(loadingDiv);
+                        }
+
+                        // Use already-loaded suggestions for search
+                        allSearchSuggestions = allSuggestions;
+                        renderList();
+                    }, 500);
+                }
+            };
+
+            window.changeSort = function () {
+                var val = document.getElementById('sort-select').value;
+                if (val === 'mine') {
+                    switchTab('mine');
+                } else {
+                    currentSort = val;
+                    if (currentFilter === 'mine') {
+                        switchTab('suggestion');
+                    } else {
+                        renderList();
+                    }
+                }
+            };
+
+            window.toggleFullScreen = function () {
+                document.querySelector('.window').classList.toggle('fullscreen');
+            };
+
+            window.switchTab = function (tab) {
+                currentFilter = tab;
+                // Sync dropdown
+                var sel = document.getElementById('sort-select');
+                sel.value = (tab === 'mine') ? 'mine' : currentSort;
+                // Update UI
+                document.querySelectorAll('.tab-bar .tab').forEach(t => t.classList.remove('active'));
+                var activeTabEl = document.querySelector(`.tab-bar .tab[onclick="switchTab('${tab}')"]`);
+                if (activeTabEl) activeTabEl.classList.add('active');
+                loadSuggestions();
+            };
+
+            // LOAD SUGGESTIONS (RTDB: load all, filter client-side)
+            function loadSuggestions() {
+                const listEl = document.getElementById('suggestion-list');
+                listEl.innerHTML = '<div style="text-align:center; padding:20px; color:#666;" data-i18n="suggestions.msg.loading">Loading...</div>';
+                allSearchSuggestions = null; // Reset search cache on reload
+
+                rtdb.ref('suggestions').once('value').then(function (snapshot) {
+                    allSuggestions = [];
+                    snapshot.forEach(function (child) {
+                        var data = child.val();
+                        data.id = child.key;
+                        allSuggestions.push(data);
+                    });
+                    renderList();
+                }).catch(function (error) {
+                    console.error("Error loading suggestions:", error);
+                    document.getElementById('suggestion-list').innerHTML = '<div style="text-align:center; padding:20px; color:red;">Failed to load suggestions. <br> ' + error.message + '</div>';
+                });
+            }
+
+            function renderList() {
+                const listEl = document.getElementById('suggestion-list');
+                listEl.innerHTML = '';
+
+                const searchEl = document.getElementById('search-input');
+                const searchBoxValue = searchEl ? searchEl.value.toLowerCase().trim() : '';
+
+                // FILTER LOCAL (Current Tab)
+                const filteredLocal = allSuggestions.filter(function (item) {
+                    const status = item.status || '';
+                    const type = item.type || 'suggestion';
+
+                    if (searchBoxValue) {
+                        const titleMatch = item.title && item.title.toLowerCase().indexOf(searchBoxValue) > -1;
+                        const descMatch = item.description && item.description.toLowerCase().indexOf(searchBoxValue) > -1;
+                        if (!titleMatch && !descMatch) return false;
+                    }
+
+                    // 1. Mine Tab — show all user's items regardless of status
+                    if (currentFilter === 'mine') return true;
+
+                    // 2. Status Tabs
+                    if (currentFilter === 'done') return status === 'done';
+                    if (currentFilter === 'closed') return status === 'closed';
+                    if (currentFilter === 'deferred') return status === 'deferred';
+
+                    // 3. Main Tabs (Suggestion / Problem)
+                    // Must NOT be in any of the special status states
+                    if (['done', 'closed', 'deferred'].includes(status)) return false;
+
+                    if (currentFilter === 'problem') return type === 'problem';
+                    if (currentFilter === 'translation') return type === 'translation';
+
+                    // Default: Suggestion
+                    return type !== 'problem' && type !== 'translation'; // Includes 'suggestion' or undefined
+                });
+
+                const sortLogic = function (a, b) {
+                    const statusA = a.status || '';
+                    const statusB = b.status || '';
+
+                    // Weights: In Progress (3), Open (2), Deferred (2), Done/Closed (0)
+                    const getWeight = s => {
+                        if (s === 'in_progress') return 3;
+                        return 1;
+                    };
+
+                    const wA = getWeight(statusA);
+                    const wB = getWeight(statusB);
+
+                    if (wA !== wB) return wB - wA; // Higher weight first
+
+                    if (currentSort === 'popular') {
+                        const votesA = Object.keys(a.upvotes || {}).length;
+                        const votesB = Object.keys(b.upvotes || {}).length;
+                        return votesB - votesA;
+                    } else {
+                        const tA = typeof a.createdAt === 'number' ? a.createdAt : 0;
+                        const tB = typeof b.createdAt === 'number' ? b.createdAt : 0;
+                        return tB - tA;
+                    }
+                };
+
+                const sortedLocal = [].concat(filteredLocal);
+                sortedLocal.sort(sortLogic);
+
+                // Build Final List
+                let finalSorted = [];
+                let localIds = new Set();
+                sortedLocal.forEach(item => {
+                    item._isCurrentTab = true;
+                    localIds.add(item.id);
+                    finalSorted.push(item);
+                });
+
+                if (searchBoxValue && searchBoxValue.length >= 2 && allSearchSuggestions) {
+                    const filteredGlobal = allSearchSuggestions.filter(function (item) {
+                        if (localIds.has(item.id)) return false; // Already in local
+                        const titleMatch = item.title && item.title.toLowerCase().indexOf(searchBoxValue) > -1;
+                        const descMatch = item.description && item.description.toLowerCase().indexOf(searchBoxValue) > -1;
+                        return titleMatch || descMatch;
+                    });
+                    
+                    const sortedGlobal = [].concat(filteredGlobal);
+                    sortedGlobal.sort(sortLogic);
+                    
+                    sortedGlobal.forEach(item => {
+                        item._isCurrentTab = false;
+                        finalSorted.push(item);
+                    });
+                }
+
+                let hasShownOtherDivider = false;
+
+                finalSorted.forEach(function (data) {
+                    if (searchBoxValue && !data._isCurrentTab && !hasShownOtherDivider) {
+                        const div = document.createElement('div');
+                        div.style.textAlign = 'center';
+                        div.style.padding = '10px';
+                        div.style.paddingBottom = '0px';
+                        div.style.fontWeight = 'bold';
+                        div.style.marginTop = '10px';
+                        div.style.color = '#666';
+                        div.innerText = window.t ? window.t('suggestions.label.other_tabs') || 'Other Results' : 'Other Results';
+                        listEl.appendChild(div);
+                        hasShownOtherDivider = true;
+                    }
+
+                    const id = data.id;
+                    const upvotesObj = data.upvotes || {};
+                    const upvoteUids = Object.keys(upvotesObj);
+                    const voteCount = upvoteUids.length;
+                    const isDone = data.status === 'done';
+                    const isProgress = data.status === 'in_progress';
+                    const isAuthorPro = !!supporterUsers[data.authorName];
+                    // SAFE ACCESS: No optional chaining
+                    const hasVoted = currentUser ? !!upvotesObj[currentUser.uid] : false;
+
+                    const el = document.createElement('div');
+                    el.className = 'suggestion-item' + (isDone ? ' done' : '') + (isAuthorPro ? ' supporter' : '');
+                    el.onclick = function () { openSuggestion(id, data); };
+
+
+                    // Badge Logic
+                    const type = data.type || 'suggestion';
+                    const category = data.category || 'General';
+                    let badgeKey = '';
+
+                    if (category === 'General' || category === '') {
+                        badgeKey = 'suggestions.type.' + type;
+                    } else if (type === 'translation') {
+                        badgeKey = 'suggestions.lang.' + category.toLowerCase();
+                    } else {
+                        badgeKey = 'suggestions.cat.' + category.toLowerCase().replace(' ', '_');
+                    }
+
+                    let badgeText = (window.t ? window.t(badgeKey) : (category === 'General' ? type : category)).toUpperCase();
+                    if (badgeText.startsWith('SUGGESTIONS.')) badgeText = (category === 'General' ? type : category).toUpperCase(); // Fallback if key missing
+
+                    const isProblem = (data.type === 'problem');
+                    const isTranslation = (data.type === 'translation');
+                    let badgeClass = isProblem ? 'problem-badge' : (isTranslation ? 'translation-badge' : 'status-badge');
+
+                    let badgeStyle = '';
+                    if (!isProblem && !isTranslation && !['done', 'closed', 'deferred', 'in_progress'].includes(data.status)) {
+                        badgeStyle = 'background:white; color:black; border:1px solid black;';
+                    }
+
+                    let statusHtml = '';
+                    if (data.status === 'done') {
+                        statusHtml = `<span class="status-badge" style="background:green;">${window.t ? window.t('suggestions.tab.done').toUpperCase() : 'DONE'}</span>`;
+                    } else if (data.status === 'closed') {
+                        statusHtml = `<span class="status-badge" style="background:red;">${window.t ? window.t('suggestions.tab.closed').toUpperCase() : 'CLOSED'}</span>`;
+                    } else if (data.status === 'deferred') {
+                        statusHtml = `<span class="status-badge" style="background:orange;">${window.t ? window.t('suggestions.tab.deferred').toUpperCase() : 'DEFERRED'}</span>`;
+                    } else if (data.status === 'in_progress') {
+                        statusHtml = `<span class="progress-badge">${window.t ? window.t('suggestions.status.in_progress').toUpperCase() : 'IN PROGRESS'}</span>`;
+                    } else {
+                        statusHtml = `<span class="${badgeClass}" style="${badgeStyle}">${badgeText}</span>`;
+                    }
+
+                    const voteClass = hasVoted ? 'vote-badge voted' : 'vote-badge';
+
+                    const crown = isAuthorPro ? CROWN_SVG : '';
+
+                    el.innerHTML = `
+                    <div class="sugg-header">
+                        <div>
+                            ${statusHtml}
+                            <span class="sugg-title">${escapeHtml(data.title)}</span>
+                        </div>
+                        <button class="${voteClass}" onclick="event.stopPropagation(); toggleVote('${id}')">▲ ${voteCount}</button>
+                    </div>
+                    <div style="font-size:0.9rem; margin-bottom:5px; height: 1.2em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        ${escapeHtml(data.description)}
+                    </div>
+                    <div class="sugg-meta">${crown}by ${escapeHtml(data.authorName || (window.t ? window.t('suggestions.msg.anonymous') : 'Anon'))}</div>
+                `;
+                    listEl.appendChild(el);
+                });
+
+                if (finalSorted.length === 0) {
+                    listEl.innerHTML = `<div style="text-align:center; padding:20px;">${window.t ? window.t('suggestions.msg.empty') : 'No suggestions yet. Be the first!'}</div>`;
+                }
+            }
+
+            // OPEN DETAIL
+            window.openSuggestion = function (id, data) {
+                currentSuggestionId = id;
+                document.getElementById('detail-view').style.display = 'flex';
+                document.getElementById('suggestion-list').style.display = 'none'; // Hide list
+                document.getElementById('main-toolbar').style.display = 'none';
+                document.getElementById('tab-bar').style.display = 'none'; // Hide tabs
+
+                document.getElementById('detail-title').textContent = data.title;
+                document.getElementById('detail-title-bar').textContent = data.title;
+                document.getElementById('detail-desc').textContent = data.description;
+
+                let dateStr = window.t ? window.t('suggestions.msg.unknown_date') : 'Unknown Date';
+                // SAFE ACCESS: No optional chaining
+                if (typeof data.createdAt === 'number') {
+                    dateStr = (function(d) {
+                        var zd = (typeof rekindleGetZonedDate === 'function') ? rekindleGetZonedDate(d) : d;
+                        return (zd.getMonth()+1) + '/' + zd.getDate() + '/' + zd.getFullYear();
+                    })(new Date(data.createdAt));
+                }
+
+                let isAuthorPro = !!supporterUsers[data.authorName];
+                let crown = isAuthorPro ? CROWN_SVG : '';
+
+                let authorHtml = `by ${escapeHtml(data.authorName || (window.t ? window.t('suggestions.msg.anonymous') : 'Anonymous'))}`;
+                if (isAuthorPro) authorHtml = crown + authorHtml;
+
+                document.getElementById('detail-meta').innerHTML = `${authorHtml} • ${dateStr}`;
+                if (data.device) {
+                    document.getElementById('detail-meta').innerHTML += ` • ${window.t ? window.t('suggestions.label.device') : 'Device'}: ${escapeHtml(data.device)}`;
+                }
+                if (data.app) {
+                    document.getElementById('detail-meta').innerHTML += ` • ${window.t ? window.t('suggestions.label.app') : 'App'}: ${escapeHtml(data.app)}`;
+                }
+
+                updateVoteBtn(data.upvotes || {});
+                updateAdminControls(data);
+                loadComments(id);
+            };
+
+            window.updateAdminControls = function (data) {
+                // Specific check for ukiyo@rekindle.ink
+                const isOwner = currentUser && currentUser.email === 'ukiyo@rekindle.ink';
+                const adminDiv = document.getElementById('admin-controls');
+
+                // Clear existing
+                adminDiv.innerHTML = '';
+                adminDiv.style.display = 'none';
+
+                if (!isOwner) return;
+
+                adminDiv.style.display = 'flex';
+
+                // Helpers for buttons
+                const createBtn = (text, onClick, bg = 'white', color = 'black') => {
+                    const b = document.createElement('button');
+                    b.className = 'vote-btn';
+                    b.innerHTML = `<span>${text}</span>`;
+                    b.onclick = onClick;
+                    b.style.background = bg;
+                    b.style.color = color;
+                    if (bg === 'black') b.style.borderColor = 'white'; // Contrast
+                    return b;
+                };
+
+                // TYPE BUTTONS
+                const isProb = data.type === 'problem';
+                adminDiv.appendChild(createBtn(isProb ? 'To Suggestion' : 'To Problem', () => toggleType()));
+
+                // EDIT CAT
+                adminDiv.appendChild(createBtn('Edit Cat', () => openEditCategoryModal()));
+
+                // EDIT CONTENT
+                adminDiv.appendChild(createBtn('Edit Content', () => openEditContentModal()));
+
+                // DIVIDER
+                const divider = document.createElement('div');
+                divider.style.width = '100%';
+                divider.style.height = '1px';
+                divider.style.background = '#ccc';
+                divider.style.margin = '5px 0';
+                adminDiv.appendChild(divider);
+
+                // STATUS BUTTONS
+                // [Suggestion] [Problem] [Done] [Closed] [In Review]
+                // 1. Move to Suggestion/Problem (Use existing toggleType logic but we can make it explicit if needed, for now logic is toggle)
+
+                // 2. Status Setters
+                adminDiv.appendChild(createBtn('Open', () => setAdminStatus(null), '#fff'));
+                adminDiv.appendChild(createBtn('Deferred', () => setAdminStatus('deferred'), 'orange', 'white'));
+                adminDiv.appendChild(createBtn('In Progress', () => setAdminStatus('in_progress'), '#007bff', 'white'));
+                adminDiv.appendChild(createBtn('Done', () => setAdminStatus('done'), 'green', 'white'));
+                adminDiv.appendChild(createBtn('Closed', () => setAdminStatus('closed'), 'red', 'white'));
+
+                // PRO TOGGLE
+                const isItemPro = !!data.isPro;
+                adminDiv.appendChild(createBtn(isItemPro ? 'Remove Pro' : 'Mark Pro', () => toggleProStatus(), isItemPro ? '#333' : '#666', 'white'));
+
+                // DELETE BUTTON (Admin Only)
+                adminDiv.appendChild(createBtn('🗑 Delete', () => deleteSuggestion(), '#8B0000', 'white'));
+            };
+
+            window.deleteSuggestion = function () {
+                if (!currentSuggestionId || !currentUser) return;
+                if (currentUser.email !== 'ukiyo@rekindle.ink') {
+                    showMessage("Error", "Only admin can delete suggestions.");
+                    return;
+                }
+
+                showConfirmModal("Are you sure you want to delete this suggestion? This cannot be undone.", function () {
+                    rtdb.ref('suggestions/' + currentSuggestionId).remove().then(function () {
+                        // Remove from local cache
+                        allSuggestions = allSuggestions.filter(s => s.id !== currentSuggestionId);
+                        closeDetailView();
+                        renderList();
+                        showMessage("Deleted", "Suggestion has been removed.");
+                    }).catch(function (err) {
+                        console.error("Delete failed", err);
+                        showMessage("Error", "Failed to delete suggestion.");
+                    });
+                });
+            };
+
+
+            window.setAdminStatus = function (status) {
+                if (!currentSuggestionId) return;
+                rtdb.ref('suggestions/' + currentSuggestionId).update({ status: status }).then(() => {
+                    updateLocalItem(currentSuggestionId, { status: status });
+                    closeDetailView();
+                    // Optional: Switch to that tab
+                    if (status && ['done', 'closed', 'deferred'].includes(status)) {
+                        switchTab(status);
+                    }
+                }).catch(err => {
+                    console.error(err);
+                    showMessage("Error", "Failed to set status.");
+                });
+            };
+
+            window.toggleProStatus = function () {
+                if (!currentSuggestionId || !currentUser) return;
+
+                rtdb.ref('suggestions/' + currentSuggestionId).once('value').then(function (snap) {
+                    if (!snap.exists()) throw "Suggestion does not exist!";
+                    const newPro = !snap.val().isPro;
+                    return rtdb.ref('suggestions/' + currentSuggestionId).update({ isPro: newPro });
+                }).then(function () {
+                    return rtdb.ref('suggestions/' + currentSuggestionId).once('value');
+                }).then(function (snap) {
+                    updateLocalItem(currentSuggestionId, { isPro: snap.val().isPro });
+                }).catch(function (err) {
+                    console.error("Pro toggle failed", err);
+                    showMessage("Error", "Failed to update Pro status.");
+                });
+            };
+
+            window.cycleStatus = function () {
+                if (!currentSuggestionId || !currentUser) return;
+
+                rtdb.ref('suggestions/' + currentSuggestionId).once('value').then(function (snap) {
+                    if (!snap.exists()) throw "Suggestion does not exist";
+
+                    const currentStatus = snap.val().status || '';
+                    let newStatus = '';
+
+                    if (currentStatus === 'done') {
+                        newStatus = null; // Open
+                    } else if (currentStatus === 'in_progress') {
+                        newStatus = 'done';
+                    } else {
+                        newStatus = 'in_progress';
+                    }
+
+                    return rtdb.ref('suggestions/' + currentSuggestionId).update({ status: newStatus });
+                }).then(function () {
+                    return rtdb.ref('suggestions/' + currentSuggestionId).once('value');
+                }).then(function (snap) {
+                    updateLocalItem(currentSuggestionId, { status: snap.val().status || null });
+                    closeDetailView();
+                }).catch(function (err) {
+                    console.error("Status update failed", err);
+                    showMessage("Error", "Failed to update status.");
+                });
+            };
+
+            window.openEditCategoryModal = function () {
+                if (!currentSuggestionId) return;
+
+                // Find current item
+                let item = null;
+                for (var i = 0; i < allSuggestions.length; i++) {
+                    if (allSuggestions[i].id === currentSuggestionId) {
+                        item = allSuggestions[i];
+                        break;
+                    }
+                }
+                if (!item) return;
+
+                const type = item.type || 'suggestion';
+                const currentCat = item.category || 'General';
+
+                const sel = document.getElementById('edit-cat-select');
+                sel.innerHTML = '';
+
+                let finalOpts = [];
+                if (type === 'suggestion') {
+                    finalOpts = ['General', 'App Suggestion', 'Game Suggestion', 'Feature Suggestion', 'Other'];
+                } else if (type === 'translation') {
+                    finalOpts = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Chinese', 'Japanese', 'Korean', 'Russian', 'Arabic', 'Other'];
+                } else {
+                    finalOpts = ['General', 'Visual Problem', 'Technical Problem', 'Performance Issue', 'Accessibility Problem', 'Other'];
+                }
+
+                finalOpts.forEach(function (o) {
+                    const op = document.createElement('option');
+                    op.value = o;
+                    let key = 'suggestions.cat.' + o.toLowerCase().replace(' ', '_');
+                    if (type === 'translation') key = 'suggestions.lang.' + o.toLowerCase();
+                    op.text = (window.t ? window.t(key) : o);
+                    if (o === currentCat) op.selected = true;
+                    sel.appendChild(op);
+                });
+
+                document.getElementById('edit-cat-overlay').style.display = 'flex';
+            };
+
+            window.submitEditCategory = function () {
+                if (!currentSuggestionId) return;
+                const newCat = document.getElementById('edit-cat-select').value;
+
+                rtdb.ref('suggestions/' + currentSuggestionId).update({
+                    category: newCat
+                }).then(function () {
+                    document.getElementById('edit-cat-overlay').style.display = 'none';
+                    updateLocalItem(currentSuggestionId, { category: newCat });
+                }).catch(function (err) {
+                    console.error(err);
+                    showMessage("Error", "Failed to update category.");
+                });
+            };
+
+            // EDIT CONTENT LOGIC
+            window.openEditContentModal = function () {
+                if (!currentSuggestionId) return;
+
+                // Find current item
+                let item = null;
+                for (var i = 0; i < allSuggestions.length; i++) {
+                    if (allSuggestions[i].id === currentSuggestionId) {
+                        item = allSuggestions[i];
+                        break;
+                    }
+                }
+                if (!item) return;
+
+                document.getElementById('edit-title').value = item.title;
+                document.getElementById('edit-desc').value = item.description;
+                document.getElementById('edit-content-overlay').style.display = 'flex';
+            };
+
+            window.submitEditContent = function () {
+                if (!currentSuggestionId) return;
+                const newTitle = document.getElementById('edit-title').value.trim();
+                const newDesc = document.getElementById('edit-desc').value.trim();
+
+                if (!newTitle || !newDesc) {
+                    showMessage("Error", "Title and Description cannot be empty.");
+                    return;
+                }
+
+                rtdb.ref('suggestions/' + currentSuggestionId).update({
+                    title: newTitle,
+                    description: newDesc
+                }).then(function () {
+                    document.getElementById('edit-content-overlay').style.display = 'none';
+                    updateLocalItem(currentSuggestionId, { title: newTitle, description: newDesc });
+                    showMessage("Success", "Content updated.");
+                    // Update detail view immediately
+                    document.getElementById('detail-title').textContent = newTitle;
+                    document.getElementById('detail-title-bar').textContent = newTitle;
+                    document.getElementById('detail-desc').textContent = newDesc;
+                }).catch(function (err) {
+                    console.error(err);
+                    showMessage("Error", "Failed to update content. Check permissions.");
+                });
+            };
+
+            window.toggleType = function () {
+                if (!currentSuggestionId || !currentUser) return;
+
+                rtdb.ref('suggestions/' + currentSuggestionId).once('value').then(function (snap) {
+                    if (!snap.exists()) {
+                        throw "Suggestion does not exist!";
+                    }
+
+                    const currentType = snap.val().type || 'suggestion';
+                    let newType = 'suggestion';
+                    if (currentType === 'suggestion') newType = 'problem';
+                    else if (currentType === 'problem') newType = 'translation';
+                    else newType = 'suggestion';
+
+                    // Reset category to General/English when switching type to avoid mismatches
+                    const newCat = (newType === 'translation') ? 'English' : 'General';
+                    return rtdb.ref('suggestions/' + currentSuggestionId).update({ type: newType, category: newCat });
+                }).then(function () {
+                    return rtdb.ref('suggestions/' + currentSuggestionId).once('value');
+                }).then(function (snap) {
+                    const val = snap.val();
+                    updateLocalItem(currentSuggestionId, { type: val.type, category: val.category });
+                    // Close detail view because item might disappear from current list
+                    closeDetailView();
+                    // Optional: Switch tab to follow the item?
+                    // switchTab(newType); 
+                }).catch(function (err) {
+                    console.error("Type update failed", err);
+                    showMessage("Error", "Failed to update type. Are you Ukiyo?");
+                });
+            };
+
+            function updateLocalItem(id, updates) {
+                for (var i = 0; i < allSuggestions.length; i++) {
+                    if (allSuggestions[i].id === id) {
+                        var item = allSuggestions[i];
+                        for (var key in updates) {
+                            item[key] = updates[key];
+                        }
+                        // If we are currently viewing this item, update controls
+                        if (currentSuggestionId === id) {
+                            updateAdminControls(item);
+                        }
+                        break;
+                    }
+                }
+                renderList();
+            }
+
+            window.closeDetailView = function () {
+                document.getElementById('detail-view').style.display = 'none';
+                document.getElementById('suggestion-list').style.display = 'flex';
+                document.getElementById('main-toolbar').style.display = 'flex';
+                document.getElementById('tab-bar').style.display = 'flex';
+                currentSuggestionId = null;
+                if (commentsRefListener) {
+                    commentsRefListener.off('value');
+                    commentsRefListener = null;
+                }
+            };
+
+            // VOTE LOGIC
+            window.updateVoteBtn = function (upvotes) {
+                const btn = document.getElementById('detail-vote-btn');
+                const countSpan = document.getElementById('detail-vote-count');
+                const upvotesObj = upvotes || {};
+                const upvoteUids = Object.keys(upvotesObj);
+                const count = upvoteUids.length;
+                const hasVoted = currentUser ? !!upvotesObj[currentUser.uid] : false;
+
+                countSpan.textContent = count;
+                if (hasVoted) {
+                    btn.classList.add('voted');
+                    btn.querySelector('span').textContent = '▼ ' + (window.t ? window.t('suggestions.btn.remove_upvote') : 'Remove Upvote');
+                } else {
+                    btn.classList.remove('voted');
+                    btn.querySelector('span').textContent = '▲ ' + (window.t ? window.t('suggestions.btn.upvote') : 'Upvote');
+                }
+            };
+
+            window.toggleVote = function (id) {
+                const targetId = id || currentSuggestionId;
+                if (!targetId || !currentUser) return;
+
+                const upvoteRef = rtdb.ref('suggestions/' + targetId + '/upvotes/' + currentUser.uid);
+
+                upvoteRef.once('value').then(function (snap) {
+                    if (snap.exists()) {
+                        return upvoteRef.remove();
+                    } else {
+                        return upvoteRef.set(true);
+                    }
+                }).then(function () {
+                    return rtdb.ref('suggestions/' + targetId + '/upvotes').once('value');
+                }).then(function (snap) {
+                    const newUpvotes = snap.val() || {};
+                    if (targetId === currentSuggestionId) {
+                        updateVoteBtn(newUpvotes);
+                    }
+                    updateLocalItem(targetId, { upvotes: newUpvotes });
+                    renderList();
+                }).catch(function (err) { console.error("Vote failed", err); });
+            };
+
+
+            // COMMENTS (Optimization: Use .get() or keep listener? Comments are only loaded for the active suggestion.
+            // Keeping listener for now as it only affects one doc's subcollection during active viewing.)
+            function loadComments(id) {
+                const list = document.getElementById('detail-comments');
+                list.innerHTML = window.t ? window.t('suggestions.msg.loading_comments') : 'Loading comments...';
+                const isOwner = currentUser && currentUser.email === 'ukiyo@rekindle.ink';
+
+                commentsRefListener = rtdb.ref('suggestions/' + id + '/comments');
+                commentsRefListener.on('value', function (snapshot) {
+                    list.innerHTML = '';
+                    const comments = [];
+                    snapshot.forEach(function (child) {
+                        comments.push({ key: child.key, ...child.val() });
+                    });
+                    comments.sort(function (a, b) {
+                        return (a.createdAt || 0) - (b.createdAt || 0);
+                    });
+                    comments.forEach(function (c) {
+                        const isCommentPro = !!supporterUsers[c.authorName];
+                        const crown = isCommentPro ? CROWN_SVG : '';
+
+                        // Dev Check
+                        const isDev = (c.authorEmail === 'ukiyo@rekindle.ink') || (c.authorName && c.authorName.toLowerCase() === 'ukiyo');
+                        const devBadge = isDev ? '<span class="dev-badge">DEV</span>' : '';
+
+                        const deleteBtn = isOwner ? `<button class="comment-delete-btn" onclick="deleteComment('${c.key}')">🗑</button>` : '';
+
+                        const el = document.createElement('div');
+                        el.className = 'comment-item' + (isCommentPro ? ' supporter' : '');
+                        el.innerHTML = `
+                            <span class="comment-author">${devBadge}${crown}${escapeHtml(c.authorName)}:</span>
+                            <span>${escapeHtml(c.text)}</span>
+                            ${deleteBtn}
+                        `;
+                        list.appendChild(el);
+                    });
+                    // Auto scroll to bottom
+                    list.scrollTop = list.scrollHeight;
+                });
+            }
+
+            window.deleteComment = function (commentKey) {
+                if (!currentSuggestionId || !currentUser) return;
+                if (currentUser.email !== 'ukiyo@rekindle.ink') {
+                    showMessage("Error", "Only admin can delete comments.");
+                    return;
+                }
+
+                showConfirmModal("Are you sure you want to delete this comment?", function () {
+                    rtdb.ref('suggestions/' + currentSuggestionId + '/comments/' + commentKey).remove().then(function () {
+                        showMessage("Deleted", "Comment has been removed.");
+                    }).catch(function (err) {
+                        console.error("Delete comment failed", err);
+                        showMessage("Error", "Failed to delete comment.");
+                    });
+                });
+            };
+
+            window.postComment = function () {
+                const inp = document.getElementById('comment-input');
+                const text = inp.value.trim();
+                if (!text || !currentSuggestionId || !currentUser) return;
+
+                const commentsRef = rtdb.ref('suggestions/' + currentSuggestionId + '/comments');
+                commentsRef.once('value').then(function (snapshot) {
+                    // Find first unused slot among _1, _2, _3
+                    const usedIds = new Set();
+                    snapshot.forEach(function (child) { usedIds.add(child.key); });
+                    let slot = null;
+                    for (var i = 1; i <= 3; i++) {
+                        if (!usedIds.has(currentUser.uid + '_' + i)) { slot = i; break; }
+                    }
+                    if (!slot) {
+                        showMessage("Limit Reached", "You can only post 3 comments per suggestion.");
+                        return;
+                    }
+                    commentsRef.child(currentUser.uid + '_' + slot).set({
+                        text: text,
+                        authorName: currentUser.displayName || currentUser.email.split('@')[0],
+                        authorUid: currentUser.uid,
+                        authorEmail: currentUser.email,
+                        isPro: isPro,
+                        createdAt: firebase.database.ServerValue.TIMESTAMP
+                    });
+                    inp.value = '';
+                }).catch(function (err) {
+                    console.error("Error checking comment count:", err);
+                    showMessage("Error", "Could not post comment. Please try again.");
+                });
+            };
+
+            // SUBMIT SUGGESTION
+            window.openCreateModal = function () {
+                document.getElementById('modal-overlay').style.display = 'flex';
+                updateFormFields(); // Init fields
+                document.getElementById('new-title').focus();
+            };
+
+            window.updateFormFields = function () {
+                const radios = document.getElementsByName('sugg-type');
+                let type = 'suggestion';
+                for (var i = 0; i < radios.length; i++) {
+                    if (radios[i].checked) {
+                        type = radios[i].value;
+                        break;
+                    }
+                }
+
+                const catSelect = document.getElementById('new-category');
+                catSelect.innerHTML = '';
+
+                const deviceInput = document.getElementById('new-device');
+                const appInput = document.getElementById('new-app');
+
+                let finalOpts = [];
+                if (type === 'suggestion') {
+                    finalOpts = ['General', 'App Suggestion', 'Game Suggestion', 'Feature Suggestion', 'Other'];
+                    deviceInput.style.display = 'none';
+                    appInput.style.display = 'none';
+                } else if (type === 'translation') {
+                    finalOpts = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Chinese', 'Japanese', 'Korean', 'Russian', 'Arabic', 'Other'];
+                    deviceInput.style.display = 'none';
+                    appInput.style.display = 'block';
+                } else {
+                    finalOpts = ['General', 'Visual Problem', 'Technical Problem', 'Performance Issue', 'Accessibility Problem', 'Other'];
+                    deviceInput.style.display = 'block';
+                    appInput.style.display = 'none';
+                }
+
+                finalOpts.forEach(function (o) {
+                    const op = document.createElement('option');
+                    op.value = o;
+                    let key = 'suggestions.cat.' + o.toLowerCase().replace(' ', '_');
+                    if (type === 'translation') key = 'suggestions.lang.' + o.toLowerCase();
+                    op.text = (window.t ? window.t(key) : o);
+                    catSelect.appendChild(op);
+                });
+            };
+
+            window.closeModal = function () {
+                document.getElementById('modal-overlay').style.display = 'none';
+                document.getElementById('new-title').value = '';
+                document.getElementById('new-desc').value = '';
+            };
+
+            window.submitSuggestion = function () {
+                const btn = document.getElementById('submit-sugg-btn');
+                const title = document.getElementById('new-title').value.trim();
+                const desc = document.getElementById('new-desc').value.trim();
+                const category = document.getElementById('new-category').value;
+                const device = document.getElementById('new-device').value.trim();
+                const app = document.getElementById('new-app').value.trim();
+
+                const radios = document.getElementsByName('sugg-type');
+                let type = 'suggestion';
+                for (var i = 0; i < radios.length; i++) {
+                    if (radios[i].checked) {
+                        type = radios[i].value;
+                        break;
+                    }
+                }
+
+                if (!title || !desc) {
+                    showMessage("Missing Info", "Please fill in title and description.");
+                    return;
+                }
+
+                if (type === 'problem' && !device) {
+                    showMessage("Missing Info", "Please specify your device for problems.");
+                    return;
+                }
+
+                if (type === 'translation' && !app) {
+                    showMessage("Missing Info", "Please specify which app this translation applies to.");
+                    return;
+                }
+
+
+                // Logic moved to earlier in function for validation
+                // const radios = ... 
+
+
+                // Disable button to prevent multiple submissions
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = 'Submitting...';
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                }
+
+                // Check for duplicates in already-loaded data
+                var isDuplicate = false;
+                for (var sIdx = 0; sIdx < allSuggestions.length; sIdx++) {
+                    if (allSuggestions[sIdx].title === title && allSuggestions[sIdx].description === desc) {
+                        isDuplicate = true;
+                        break;
+                    }
+                }
+                if (isDuplicate) {
+                    showMessage("Duplicate", "A suggestion with this exact title and description already exists.");
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Submit';
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                    }
+                    return;
+                }
+
+                // No duplicate found, proceed to add
+                var newRef = rtdb.ref('suggestions').push();
+                newRef.set({
+                    title: title,
+                    description: desc,
+                    type: type,
+                    category: category,
+                    device: (type === 'problem') ? device : null,
+                    app: (type === 'translation') ? app : null,
+                    authorUid: currentUser.uid,
+                    authorName: currentUser.displayName || currentUser.email.split('@')[0],
+                    isPro: isPro,
+                    upvotes: {},
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                }).then(function () {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Submit';
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                    }
+                    closeModal();
+                }).catch(function (err) {
+                    console.error(err);
+                    showMessage("Error", "Error submitting. Content too long?");
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = 'Submit';
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                    }
+                });
+            };
+
+            // MODAL SYSTEM
+            window.showMessage = function (title, text) {
+                document.getElementById('msg-title').textContent = title;
+                document.getElementById('msg-body').textContent = text;
+                document.getElementById('msg-modal-overlay').style.display = 'flex';
+            };
+
+            window.closeMsgModal = function () {
+                document.getElementById('msg-modal-overlay').style.display = 'none';
+            };
+
+            // UTILS
+            function escapeHtml(text) {
+                if (!text) return "";
+                return text
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+        } catch (e) {
+            console.error("CRITICAL INIT ERROR", e);
+            document.body.innerHTML = '<div style="padding:20px;">CRITICAL ERROR: ' + e.message + '</div>';
+        }
+
+        function showConfirm(msg, onOk, onCancel) {
+            var d = document.createElement('div');
+            d.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+            d.innerHTML = '<div style="background:white;border:2px solid black;box-shadow:4px 4px 0 black;padding:20px;max-width:320px;font-family:sans-serif;text-align:center;"><p style="margin-bottom:16px;">' + msg + '</p><div><button id="sc-ok" style="border:2px solid black;box-shadow:2px 2px 0 black;padding:6px 16px;background:black;color:white;font-weight:bold;cursor:pointer;margin-right:10px;">OK</button><button id="sc-cancel" style="border:2px solid black;box-shadow:2px 2px 0 black;padding:6px 16px;background:white;font-weight:bold;cursor:pointer;">Cancel</button></div></div>';
+            document.body.appendChild(d);
+            d.querySelector('#sc-ok').onclick = function() { d.remove(); if (onOk) onOk(); };
+            d.querySelector('#sc-cancel').onclick = function() { d.remove(); if (onCancel) onCancel(); };
+        }
+
+        var _confirmCallback = null;
+        function showConfirmModal(msg, callback) {
+            var m = document.getElementById('confirm-modal');
+            if (m) {
+                document.getElementById('confirm-modal-message').innerText = msg;
+                _confirmCallback = callback;
+                m.style.display = 'flex';
+            } else {
+                showConfirm(msg, callback);
+            }
+        }
+        function onConfirmYes() {
+            if (_confirmCallback) _confirmCallback();
+            closeConfirmModal();
+        }
+        function closeConfirmModal() {
+            var m = document.getElementById('confirm-modal');
+            if (m) m.style.display = 'none';
+            _confirmCallback = null;
+        }
+    </script>
+
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675"
+        data-utcoffset="11"></script>
+    <!-- REKINDLE MODALS -->
+    <div id="confirm-modal" class="modal-overlay"
+        style="z-index:99999; display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+        <div class="modal-box"
+            style="background:#fff; border:2px solid #000; padding:20px; max-width:300px; width:80%; text-align:center; box-shadow:4px 4px 0 rgba(0,0,0,0.2);">
+            <h3 id="confirm-modal-title" style="margin-top:0;">Confirm</h3>
+            <p id="confirm-modal-message"></p>
+            <div style="margin-top: 15px; display: flex; justify-content: center">
+                <button class="sys-btn" onclick="onConfirmYes()"
+                    style="border:2px solid #000; background:#000; color:#fff; padding:5px 15px; font-weight:bold; cursor:pointer;">Yes</button>
+                <button class="sys-btn" onclick="closeConfirmModal()"
+                    style="border:2px solid #000; background:#fff; padding:5px 15px; font-weight:bold; cursor:pointer;; margin-left: 10px">No</button>
+            </div>
+        </div>
+    </div>
+
+
+</body>
+
+</html>

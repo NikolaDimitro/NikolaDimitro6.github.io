@@ -1,0 +1,17 @@
+name = "rekindle-moderate"
+main = "worker.js"
+compatibility_date = "2024-12-05"
+
+# Force worker execution near US-east so outbound requests to OpenAI
+# egress from US IPs, avoiding geographic blocks (e.g. Vietnam).
+[placement]
+region = "gcp:us-east4"
+
+[vars]
+# Set via Wrangler secrets (never commit real values):
+# npx wrangler secret put OPENAI_API_KEY
+# npx wrangler secret put SOCIAL_SERVICE_ACCOUNT_JSON
+# npx wrangler secret put FIREBASE_PROJECT_ID
+# npx wrangler secret put DISCORD_BOT_TOKEN
+# npx wrangler secret put DISCORD_CHANNEL_ID
+# npx wrangler secret put DISCORD_PUBLIC_KEY

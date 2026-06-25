@@ -1,0 +1,2380 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+
+    <title>Calendar</title>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+            --stripe-pattern: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -o-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background-color: #e5e5e5;
+            /* Background managed by settings */
+
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            min-height: 90vh;
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+        }
+
+        .window.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: calc(100vw / var(--rekindle-scale, 1));
+            height: calc(100vh / var(--rekindle-scale, 1));
+            max-width: none;
+            max-height: none;
+            border: none;
+            box-shadow: none;
+            z-index: 2000;
+            transform-origin: top left !important;
+        }
+
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0 10px;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: var(--stripe-pattern);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+
+
+        /* CONTROLS (Right side of Title Bar) */
+        .title-controls {
+            position: absolute;
+            right: 10px;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Make add-btn visible by default for our logic to handle toggling */
+        .add-btn {
+            z-index: 2;
+            background: white;
+            border: 2px solid black;
+            font-weight: bold;
+            padding: 2px 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            box-shadow: 2px 2px 0 black;
+            display: none;
+        }
+
+        .icon-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 2px;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 10px;
+        }
+
+        .icon-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* Icon State Toggles */
+        .icon-contract {
+            display: none;
+        }
+
+        .window.fullscreen .icon-expand {
+            display: none;
+        }
+
+        .window.fullscreen .icon-contract {
+            display: inline;
+        }
+
+        /* ADD BTN */
+        .add-btn {
+            z-index: 2;
+            background: white;
+            border: 2px solid black;
+            font-weight: bold;
+            padding: 2px 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            box-shadow: 2px 2px 0 black;
+            display: none;
+            /* Only show in Native Mode */
+        }
+
+        .add-btn:active {
+            background: black;
+            color: white;
+            box-shadow: none;
+            transform: translate(1px, 1px);
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid black;
+            background: #eee;
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            border-right: 1px solid black;
+            background: #eee;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .tab-btn:last-child {
+            border-right: none;
+        }
+
+        .tab-btn.active {
+            background: white;
+            border-bottom: 2px solid white;
+            margin-bottom: -2px;
+            z-index: 10;
+        }
+
+        #content-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            position: relative;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- VIEW STYLES --- */
+
+        /* AGENDA */
+        .agenda-container {
+            padding: 20px;
+        }
+
+        .day-group {
+            margin-bottom: 25px;
+        }
+
+        .day-header {
+            font-size: 1.1rem;
+            font-weight: 900;
+            border-bottom: 4px double black;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .event {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid #ccc;
+            font-size: 1rem;
+            align-items: baseline;
+            position: relative;
+        }
+
+        .event:last-child {
+            border-bottom: none;
+        }
+
+        .event-time {
+            font-weight: bold;
+            width: 140px;
+            /* Widened for ranges */
+            flex-shrink: 0;
+            font-size: 0.9rem;
+            margin-right: 15px;
+            /* Bigger gap */
+        }
+
+        .event-title {
+            flex-grow: 1;
+            font-weight: normal;
+        }
+
+        .del-event-btn {
+            color: #999;
+            cursor: pointer;
+            padding: 0 10px;
+            font-weight: bold;
+        }
+
+        .del-event-btn:hover {
+            color: red;
+        }
+
+        .cal-bar {
+            width: 6px;
+            align-self: stretch;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .cal-bar-0 { display: none; }
+        .cal-bar-1 { background: black; }
+        .cal-bar-2 { background: repeating-linear-gradient(0deg, black, black 1px, transparent 1px, transparent 3px); }
+        .cal-bar-3 { background: repeating-linear-gradient(0deg, black, black 2px, transparent 2px, transparent 4px); }
+        .cal-bar-4 { background: linear-gradient(to right, black 0px, black 2px, transparent 2px, transparent 4px, black 4px, black 6px); }
+        .cal-bar-5 { background: white; }
+        .cal-bar-6 { background: repeating-linear-gradient(0deg, white, white 1px, transparent 1px, transparent 3px); }
+        .cal-bar-7 { background: repeating-linear-gradient(0deg, white, white 2px, transparent 2px, transparent 4px); }
+        .cal-bar-8 { background: linear-gradient(to right, white 0px, white 2px, transparent 2px, transparent 4px, white 4px, white 6px); }
+
+        /* Reversed agenda row styles */
+        .event.cal-style-5,
+        .event.cal-style-6,
+        .event.cal-style-7,
+        .event.cal-style-8 {
+            background: black;
+            color: white;
+            border-bottom: 1px solid white;
+        }
+
+        /* NAV HEADER (For Month/Day) */
+        .nav-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #eee;
+            border-bottom: 2px solid black;
+            flex-shrink: 0;
+        }
+
+        .nav-title {
+            font-weight: bold;
+            font-size: 1rem;
+            text-transform: uppercase;
+        }
+
+        .nav-arrow {
+            background: white;
+            border: 2px solid black;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .nav-arrow:active {
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* MONTH GRID */
+        .month-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-template-rows: auto;
+            grid-auto-rows: 1fr;
+            flex-grow: 1;
+            border-bottom: 2px solid black;
+            overflow: hidden;
+        }
+
+        .weekday-label {
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+            padding: 5px 0;
+            border-bottom: 2px solid black;
+            background: #f0f0f0;
+        }
+
+        .calendar-day {
+            border-right: 1px solid #ccc;
+            border-bottom: 1px solid #ccc;
+            position: relative;
+            padding: 4px;
+            cursor: pointer;
+            background: white;
+            overflow: hidden;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .day-events {
+            flex-grow: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .calendar-day:nth-child(7n) {
+            border-right: none;
+        }
+
+        /* Remove right border on last col */
+        .calendar-day .day-number:active {
+            background: black;
+            color: white;
+        }
+
+        .calendar-day.empty {
+            background: #f9f9f9;
+            cursor: default;
+        }
+
+        .calendar-day.today {
+            background: #ddd;
+        }
+
+        .day-number {
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .day-dots {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+
+        .day-dots>*+* {
+            margin-left: 2px;
+        }
+
+        .event-dot {
+            width: 6px;
+            height: 6px;
+            background: black;
+            border-radius: 50%;
+        }
+
+
+
+        .month-event {
+            font-size: 0.7rem;
+            overflow-wrap: break-word;
+            background: black;
+            color: white;
+            padding: 2px 4px;
+            margin-bottom: 2px;
+            line-height: 1.1;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+
+
+        /* Calendar style variations for different calendars in B&W */
+        .month-event.cal-style-1, .day-event-chip.cal-style-1 {
+            background: white;
+            color: black;
+            border: 2px solid black;
+        }
+        .month-event.cal-style-2, .day-event-chip.cal-style-2 {
+            background: white;
+            color: black;
+            border: 2px dotted black;
+        }
+        .month-event.cal-style-3, .day-event-chip.cal-style-3 {
+            background: white;
+            color: black;
+            border: 2px dashed black;
+        }
+        .month-event.cal-style-4, .day-event-chip.cal-style-4 {
+            background: white;
+            color: black;
+            border: 2px solid black;
+            border-radius: 8px;
+        }
+
+        /* Reversed calendar style variations (black fill) */
+        .month-event.cal-style-5, .day-event-chip.cal-style-5 {
+            background: black;
+            color: white;
+            border: 2px solid white;
+        }
+        .month-event.cal-style-6, .day-event-chip.cal-style-6 {
+            background: black;
+            color: white;
+            border: 2px dotted white;
+        }
+        .month-event.cal-style-7, .day-event-chip.cal-style-7 {
+            background: black;
+            color: white;
+            border: 2px dashed white;
+        }
+        .month-event.cal-style-8, .day-event-chip.cal-style-8 {
+            background: black;
+            color: white;
+            border: 2px solid white;
+            border-radius: 8px;
+        }
+
+        .rekindle-checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-right: 10px;
+            box-shadow: 2px 2px 0 black;
+        }
+        .rekindle-checkbox.checked {
+            background: black;
+        }
+        .rekindle-checkbox.checked::after {
+            content: "";
+            display: block;
+            width: 4px;
+            height: 9px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+            margin-bottom: 2px;
+        }
+
+        .style-preview {
+            width: 18px;
+            height: 18px;
+            margin-right: 5px;
+            margin-top: 2px;
+            cursor: pointer;
+            border: 1px solid #999;
+            flex-shrink: 0;
+            box-sizing: border-box;
+        }
+        .style-preview.selected {
+            box-shadow: 0 0 0 2px black;
+        }
+
+        .style-dropdown {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 5px;
+            background: white;
+            border: 2px solid black;
+            box-shadow: 4px 4px 0 black;
+            padding: 10px;
+            z-index: 10003;
+        }
+
+        .style-btn {
+            background: white;
+            color: black;
+            border: 2px solid black;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            line-height: 1;
+            flex-shrink: 0;
+            box-shadow: 2px 2px 0 black;
+            font-family: inherit;
+            padding: 0;
+        }
+        .style-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+        .style-preview.cal-style-1 { background: white; border: 2px solid black; }
+        .style-preview.cal-style-2 { background: white; border: 2px dotted black; }
+        .style-preview.cal-style-3 { background: white; border: 2px dashed black; }
+        .style-preview.cal-style-4 { background: white; border: 2px solid black; border-radius: 4px; }
+        .style-preview.cal-style-5 { background: black; border: 2px solid white; }
+        .style-preview.cal-style-6 { background: black; border: 2px dotted white; }
+        .style-preview.cal-style-7 { background: black; border: 2px dashed white; }
+        .style-preview.cal-style-8 { background: black; border: 2px solid white; border-radius: 4px; }
+
+        /* DAY VIEW */
+        .day-schedule {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+        }
+
+        .hour-slot {
+            display: flex;
+            border-bottom: 1px dotted #ccc;
+            min-height: 40px;
+        }
+
+        .slot-time {
+            width: 60px;
+            border-right: 2px solid #ccc;
+            padding: 10px 5px;
+            font-size: 0.8rem;
+            color: #666;
+            text-align: right;
+            margin-right: 10px;
+        }
+
+        .slot-events {
+            flex-grow: 1;
+            padding: 5px;
+        }
+
+        .day-event-chip {
+            background: black;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-bottom: 2px;
+            font-size: 0.9rem;
+        }
+
+        #status-bar {
+            background: #eee;
+            border-top: 2px solid black;
+            padding: 5px;
+            font-size: 0.8rem;
+            text-align: center;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 15px;
+        }
+
+        #auth-overlay {
+            position: absolute;
+            top: 35px;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 35px);
+            background: rgba(255, 255, 255, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+        }
+
+        .sys-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 4px 10px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-size: 0.8rem;
+        }
+
+        .sys-btn:active {
+            background: black;
+            color: white;
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        /* MODAL */
+        #modal-overlay,
+        #sync-choice-modal {
+            display: none;
+            position: fixed;
+            /* Changed from absolute to fixed to cover fullscreen */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-box {
+            background: white;
+            border: 2px solid black;
+            box-shadow: 8px 8px 0 black;
+            padding: 20px;
+            width: 300px;
+            text-align: center;
+        }
+
+        .modal-box input {
+            width: 90%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 2px solid black;
+            font-family: inherit;
+        }
+
+        .modal-btns {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .modal-btns>*+* {
+            margin-left: 10px;
+        }
+
+        /* STANDARD MODAL SYSTEM */
+        #generic-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+            font-family: "Geneva", "Verdana", sans-serif;
+        }
+
+        .modal-box {
+            background: white;
+            border: 2px solid black;
+            padding: 20px;
+            box-shadow: 6px 6px 0 black;
+            max-width: 300px;
+            width: 80%;
+            text-align: center;
+        }
+
+        .modal-text {
+            margin-bottom: 20px;
+            font-weight: bold;
+            line-height: 1.4;
+            color: black;
+        }
+
+        .modal-btns {
+            display: flex;
+            justify-content: center;
+        }
+
+        .modal-btns>*+* {
+            margin-left: 10px;
+        }
+
+        .modal-btn {
+            background: white;
+            border: 2px solid black;
+            padding: 6px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 black;
+            font-family: inherit;
+        }
+
+        .modal-btn:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        .modal-box.window-style {
+            padding: 0;
+            width: 350px;
+            background: white;
+            box-shadow: 10px 10px 0 black;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #calendar-list-modal .modal-box.window-style {
+            width: 460px;
+        }
+
+        .modal-box.window-style .title-bar {
+            margin: 0;
+            border-bottom: 2px solid black;
+            padding: 0 10px;
+            height: 30px;
+        }
+
+        .modal-box.window-style .title-text {
+            font-size: 0.95rem;
+            padding: 0 10px;
+            background: white;
+            position: relative;
+            z-index: 2;
+        }
+
+        .modal-content {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-content > * + * {
+            margin-top: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-weight: bold;
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .modal-box input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid black;
+            font-family: inherit;
+            font-size: 0.9rem;
+            background: white;
+            box-shadow: inset 2px 2px 0 #eee;
+            margin: 0;
+            min-width: 0;
+        }
+
+        .time-inputs {
+            display: flex;
+            align-items: center;
+        }
+
+        .time-inputs > * + * {
+            margin-left: 10px;
+        }
+
+        .time-inputs input {
+            flex: 1;
+        }
+
+        .to-label {
+            font-weight: bold;
+            font-size: 0.8rem;
+            padding: 0 4px;
+            white-space: nowrap;
+        }
+
+        .modal-btns {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .modal-btns>*+* {
+            margin-left: 10px;
+        }
+    </style>
+    <link rel="stylesheet" href="css/custom-select.css">
+    <script src="time.js"></script>
+    <script src="theme.js?v=18"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/custom-select.js"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="window.location.href='index'">X</div>
+            <span class="title-text" id="app-title" data-i18n="app.calendar.name">Calendar</span>
+            <div class="title-controls">
+                <button class="add-btn" id="add-btn" onclick="openAddModal()" data-i18n="calendar.btn.add">+
+                    Add</button>
+                <button class="icon-btn" onclick="toggleFullScreen()" title="Full Screen">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                        stroke-linecap="square" stroke-linejoin="miter">
+                        <path class="icon-expand" d="M15 3h6v6M14 10l6.1-6.1M9 21H3v-6M10 14l-6.1 6.1"></path>
+                        <path class="icon-contract" d="M21 9H15V3M21 3l-6 6M3 15h6v6M3 21l6-6"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab-btn active" onclick="switchView('agenda')" data-i18n="calendar.tab.agenda">Agenda</div>
+            <div class="tab-btn" onclick="switchView('day')" data-i18n="calendar.tab.day">Day</div>
+            <div class="tab-btn" onclick="switchView('month')" data-i18n="calendar.tab.month">Month</div>
+        </div>
+
+        <div id="content-area"></div>
+
+        <div id="status-bar">
+            <span id="status-msg" data-i18n="calendar.status.ready">Ready.</span>
+            <div>
+                <button class="sys-btn" id="today-btn-bottom" onclick="goToToday()"
+                    style="display:none; margin-right:5px;">Today</button>
+                <button class="sys-btn" id="cal-list-btn-bottom" onclick="openCalendarListModal()"
+                    style="display:none; margin-right:5px;">Calendars</button>
+                <button class="sys-btn" onclick="refreshData()" data-i18n="calendar.btn.sync">Sync</button>
+            </div>
+        </div>
+
+        <!-- AUTH OVERLAY -->
+        <div id="auth-overlay">
+            <h2 style="margin-bottom:10px;" data-i18n="calendar.auth.title">Google Calendar</h2>
+            <p style="margin-bottom:20px; font-size:0.9rem;" data-i18n="calendar.auth.desc">Log in to sync.</p>
+            <button class="sys-btn" onclick="oauthSignIn()" data-i18n="calendar.auth.login">Log In</button>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT MODAL -->
+    <div id="modal-overlay">
+        <div class="modal-box window-style">
+            <div class="title-bar">
+                <div class="title-stripes"></div>
+                <span class="title-text" id="modal-title">New Event</span>
+            </div>
+            <div class="modal-content">
+                <div class="input-group">
+                    <label>Event</label>
+                    <input type="text" id="evt-title" placeholder="Untitled Event"
+                        data-i18n-placeholder="calendar.modal.ph.title">
+                </div>
+
+                <div class="input-group" id="calendar-select-group" style="display:none;">
+                    <label>Calendar</label>
+                    <select id="evt-calendar-select"
+                        style="width:100%; padding:8px; border:2px solid black; font-family:inherit;"></select>
+                </div>
+
+                <div class="input-group">
+                    <label>Date</label>
+                    <input type="date" id="evt-date">
+                </div>
+
+                <div class="input-group">
+                    <label>Time</label>
+                    <div class="time-inputs">
+                        <input type="time" id="evt-time">
+                        <span class="to-label">to</span>
+                        <input type="time" id="evt-end-time">
+                    </div>
+                </div>
+
+                <div class="modal-btns">
+                    <button class="sys-btn" onclick="saveEvent()" data-i18n="btn.save">Save</button>
+                    <div id="modal-del-btn" style="display:none;">
+                        <button class="sys-btn" style="color:red;"
+                            onclick="deleteEvent(editingEventId); document.getElementById('modal-overlay').style.display='none'">Delete</button>
+                    </div>
+                    <button class="sys-btn" onclick="document.getElementById('modal-overlay').style.display='none'"
+                        data-i18n="btn.cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CALENDAR LIST MODAL -->
+    <div id="calendar-list-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:10002; align-items:center; justify-content:center;">
+        <div class="modal-box window-style">
+            <div class="title-bar">
+                <div class="title-stripes"></div>
+                <span class="title-text">Calendars</span>
+                <div class="close-box" onclick="document.querySelectorAll('.style-dropdown').forEach(d=>d.remove()); document.getElementById('calendar-list-modal').style.display='none'">X
+                </div>
+            </div>
+            <div class="modal-content">
+                <div id="calendar-list-container" style="max-height: calc(80vh - 160px); overflow-y: auto; text-align: left;">
+                    <!-- Checkboxes injected here -->
+                </div>
+                <div class="modal-btns">
+                    <button class="sys-btn" onclick="saveCalendarSelection()">Save</button>
+                    <button class="sys-btn"
+                        onclick="document.querySelectorAll('.style-dropdown').forEach(d=>d.remove()); document.getElementById('calendar-list-modal').style.display='none'">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYNC CHOICE MODAL -->
+    <div id="sync-choice-modal">
+        <div class="modal-box">
+            <h3 data-i18n="calendar.sync.title">Google Calendar Integration</h3>
+            <p style="margin:15px 0;" data-i18n="calendar.sync.desc">Enable Google Calendar sync or continue with Local
+                Storage?</p>
+            <div class="modal-btns">
+                <button class="sys-btn" onclick="setSyncPreference(true)" data-i18n="calendar.sync.google">Use
+                    Google</button>
+                <button class="sys-btn" onclick="setSyncPreference(false)" data-i18n="calendar.sync.local">Use
+                    Local</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://apis.google.com/js/api.js"></script>
+
+    <script>
+        // --- FIREBASE CONFIG ---
+        // --- CONFIG ---
+        function showModal(msg, isConfirm = false, callback = null) {
+            const overlay = document.getElementById('generic-modal-overlay');
+            const messageEl = document.getElementById('modal-message');
+            const btnsEl = document.getElementById('modal-btns');
+            messageEl.textContent = msg;
+            if (isConfirm) {
+                btnsEl.innerHTML = '<button class="modal-btn" id="modal-cancel">Cancel</button><button class="modal-btn" id="modal-ok">OK</button>';
+
+                if (window.t) {
+                    document.getElementById('modal-cancel').textContent = window.t('btn.cancel', 'Cancel');
+                    document.getElementById('modal-ok').textContent = window.t('btn.ok', 'OK');
+                }
+
+                document.getElementById('modal-cancel').onclick = () => { overlay.style.display = 'none'; if (callback) callback(false); };
+                document.getElementById('modal-ok').onclick = () => { overlay.style.display = 'none'; if (callback) callback(true); };
+            } else {
+                btnsEl.innerHTML = '<button class="modal-btn" onclick="hideModal()">OK</button>';
+                if (callback) document.querySelector('.modal-btn').onclick = () => { hideModal(); callback(); };
+            }
+            overlay.style.display = 'flex';
+        }
+        function hideModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDY7x7vVmlYUyVZNLuCCmIQYa6PWFVfZqQ",
+            authDomain: "rekindle-dd1fa.firebaseapp.com",
+            projectId: "rekindle-dd1fa",
+            storageBucket: "rekindle-dd1fa.firebasestorage.app",
+            messagingSenderId: "748026882518",
+            appId: "1:748026882518:web:6877dd4329318070c11c77"
+        };
+
+        // --- GOOGLE CONFIG ---
+        const CLIENT_ID = '1000949048966-kkjtgmrsdonk3bm89rvlo0punc519vgj.apps.googleusercontent.com';
+        const SCOPES = 'https://www.googleapis.com/auth/calendar';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+
+        let googleEnabled = false;
+        let calDavUrl = localStorage.getItem('rekindle_caldav_url');
+
+        // --- TIMEZONE HANDLING ---
+        // --- TIMEZONE HANDLING ---
+        // --- TIMEZONE HANDLING ---
+        // Delegated to time.js
+
+        function getZonedDate(date) {
+            return window.rekindleGetZonedDate(date);
+        }
+
+        function formatZonedTime(date) {
+            // Fix: Must convert to Zoned Date (Wall Time) BEFORE formatting as Wall Time
+            return window.rekindleFormatWallDate(getZonedDate(new Date(date)), {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        function formatZonedDate(date, options) {
+            // Callers pass already-zoned Dates (e.g., viewDate) - just format directly
+            // Do NOT call getZonedDate here, it would double-apply the offset
+            return window.rekindleFormatWallDate(date, options);
+        }
+
+        function getUTCFromWallClock(dateStr, timeStr) {
+            // dateStr is YYYY-MM-DD, timeStr is HH:mm
+
+            // 1. Construct wall clock date
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const [h, min] = (timeStr || '00:00').split(':').map(Number);
+            const wallDate = new Date(y, m - 1, d, h, min, 0);
+
+            // 2. Get offset of current time in target zone relative to local system
+            const now = new Date();
+            const zonedNow = window.rekindleGetZonedDate(now);
+            const offsetMs = zonedNow.getTime() - now.getTime();
+
+            // 3. Apply reverse offset
+            return new Date(wallDate.getTime() - offsetMs).toISOString();
+        }
+
+        // --- STATE ---
+        let events = []; // Unified structure: { id, title, start: Date, calendarId: String }
+        let currentView = 'agenda';
+        let viewDate = getZonedDate(); // Tracks currently viewed month/day
+        let calendars = []; // [{id, summary, primary, selected}]
+        let selectedCalendarIds = [];
+
+        // --- INIT ---
+        window.onload = function () {
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+            if (window.rekindleApplyDefaultFullscreen) window.rekindleApplyDefaultFullscreen();
+
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+
+            // Load saved calendar selection
+            try {
+                const saved = localStorage.getItem('rekindle_selected_calendars');
+                if (saved) selectedCalendarIds = JSON.parse(saved);
+            } catch (e) { console.error("Error loading saved calendars", e); }
+
+            // Load saved calendar styles
+            try {
+                const savedStyles = localStorage.getItem('rekindle_calendar_styles_v2');
+                if (savedStyles) calendarStyleAssignments = JSON.parse(savedStyles);
+            } catch (e) { console.error("Error loading saved calendar styles", e); }
+
+
+            // Note: Persistence disabled due to IndexedDB hangs on some browsers (Safari)
+
+            // db.enablePersistence({ synchronizeTabs: true }) ...
+            auth.onAuthStateChanged(async user => {
+                if (user) {
+                    currentUser = user;
+
+                    // Sync settings from Firestore
+                    try {
+                        const doc = await db.collection('users').doc(currentUser.uid).collection('settings').doc('integrations').get();
+                        if (doc.exists) {
+                            const data = doc.data();
+                            if (data.google_calendar_ids) {
+                                selectedCalendarIds = data.google_calendar_ids;
+                                localStorage.setItem('rekindle_selected_calendars', JSON.stringify(selectedCalendarIds));
+                            }
+                            if (data.google_calendar !== undefined) {
+                                localStorage.setItem('rekindle_google_calendar_enabled', data.google_calendar);
+                            }
+                            if (data.calendar_styles_v2) {
+                                calendarStyleAssignments = data.calendar_styles_v2;
+                                localStorage.setItem('rekindle_calendar_styles_v2', JSON.stringify(calendarStyleAssignments));
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Error syncing settings:", e);
+                    }
+
+                    checkSyncSettings();
+                } else {
+                    document.getElementById('status-msg').innerText = "Guest Mode";
+                    initNativeMode();
+                }
+            });
+        };
+
+
+        function checkSyncSettings() {
+            const setting = localStorage.getItem('rekindle_google_calendar_enabled');
+
+            if (setting === 'true') {
+                googleEnabled = true;
+                initGoogleMode();
+            } else if (setting === 'false') {
+                googleEnabled = false;
+                document.getElementById('status-msg').innerText = "Synced: " + currentUser.email;
+                initNativeMode();
+            } else {
+                // Not set
+                document.getElementById('sync-choice-modal').style.display = 'flex';
+            }
+        }
+
+        function setSyncPreference(enableGoogle) {
+            document.getElementById('sync-choice-modal').style.display = 'none';
+            localStorage.setItem('rekindle_google_calendar_enabled', enableGoogle);
+
+            // Save preference to cloud
+            db.collection('users').doc(currentUser.uid).collection('settings').doc('integrations').set({
+                google_calendar: enableGoogle
+            }, { merge: true });
+
+            if (enableGoogle) {
+                googleEnabled = true;
+                initGoogleMode();
+            } else {
+                googleEnabled = false;
+                document.getElementById('status-msg').innerText = "Synced: " + currentUser.email;
+                initNativeMode();
+            }
+        }
+
+        function refreshData() {
+            if (googleEnabled) loadGoogleEvents();
+            else if (calDavUrl) loadCalDAVEvents();
+            else if (currentUser) loadCloudEvents();
+            else loadLocalEvents();
+        }
+
+        window.onfocus = function () {
+            // refreshData(); // Auto-refresh? Maybe too aggressive
+        };
+
+        function switchView(view) {
+            currentView = view;
+
+            // Reset viewDate to today on switching unless already in day/month flow
+            if (view === 'agenda') {
+                // Agenda doesn't use viewDate in the same way, usually shows list starting now
+                viewDate = getZonedDate();
+            }
+
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active');
+                if (b.innerText.toLowerCase() === view) b.classList.add('active');
+            });
+            renderView();
+        }
+
+        function renderView() {
+            const container = document.getElementById('content-area');
+            container.innerHTML = '';
+
+            // Sort events by date
+            events.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+            // OPTIMIZATION: Build an efficient lookup map
+            // Key: "Year-MonthIdx-Day" (e.g. "2023-0-15" for Jan 15)
+            // This avoids O(N) lookup inside the O(D) day loop
+            const eventsMap = {};
+            events.forEach(e => {
+                const z = getZonedDate(new Date(e.start));
+                const key = z.getFullYear() + '-' + z.getMonth() + '-' + z.getDate();
+                if (!eventsMap[key]) eventsMap[key] = [];
+                eventsMap[key].push(e);
+            });
+
+            if (currentView === 'agenda') {
+                renderAgenda(container, eventsMap);
+            } else if (currentView === 'month') {
+                renderMonthView(container, eventsMap);
+            } else if (currentView === 'day') {
+                renderDayView(container, eventsMap);
+            }
+
+            updateTodayButtonVisibility();
+        }
+
+        // --- AGENDA RENDERER ---
+        function renderAgenda(container) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'agenda-container';
+
+            // Filter events: Today onwards only (using Zoned Today)
+            const todayZoned = getZonedDate();
+            todayZoned.setHours(0, 0, 0, 0);
+
+            // Filter logic: Check if event's zoned start time is >= todayZoned
+            const filteredEvents = events.filter(e => {
+                const z = getZonedDate(new Date(e.start));
+                return z >= todayZoned;
+            });
+
+            if (filteredEvents.length === 0) {
+                wrapper.innerHTML = '<div style="text-align:center; padding:20px;">No upcoming events.</div>';
+                container.appendChild(wrapper);
+                return;
+            }
+
+            const grouped = {};
+            filteredEvents.forEach(e => {
+                // IMPORTANT: Group by the DATE as it appears in the TARGET ZONE
+                const z = getZonedDate(new Date(e.start));
+                // Use a string key based on the zoned date values
+                // ISO string slice is risky if z is local time, so build manually or use formatted
+                const dateKey = z.getFullYear() + '-' + (z.getMonth() + 1).toString().padStart(2, '0') + '-' + z.getDate().toString().padStart(2, '0');
+
+                if (!grouped[dateKey]) grouped[dateKey] = [];
+                grouped[dateKey].push(e);
+            });
+
+            // Sort keys to ensure chronological order
+            const sortedKeys = Object.keys(grouped).sort();
+
+            // Iterate over grouped events
+            sortedKeys.forEach(dateKey => {
+                const list = grouped[dateKey];
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'day-group';
+
+                // Construct a date object from the key parts to format it
+                // dateKey is YYYY-MM-DD
+                const [y, m, d] = dateKey.split('-').map(Number);
+                const loopDate = new Date(y, m - 1, d); // Local construction is fine as we just want to format it
+
+                const dayLabel = formatZonedDate(loopDate, { weekday: 'long', month: 'short', day: 'numeric' });
+
+                let html = `<div class="day-header">${dayLabel}</div>`;
+                list.forEach(e => {
+                    let timeStr;
+                    if (e.isAllDay) {
+                        timeStr = "All day";
+                    } else {
+                        // Format Start - End
+                        const startStr = formatZonedTime(e.start);
+                        const endStr = e.end ? formatZonedTime(e.end) : formatZonedTime(new Date(new Date(e.start).getTime() + 3600000)); // Default 1h
+                        timeStr = `${startStr} – ${endStr}`;
+                    }
+
+                    const styleIdx = e.calendarId ? getCalendarStyle(e.calendarId) : 0;
+                    const styleClass = e.calendarId ? 'cal-style-' + styleIdx : '';
+                    html += `
+                        <div class="event ${styleClass}" onclick="editEvent('${e.id}')" style="cursor:pointer">
+                            <div class="cal-bar cal-bar-${styleIdx}"></div>
+                            <div class="event-time">${timeStr}</div>
+                            <div class="event-title">${e.title}</div>
+                        </div>
+                    `;
+                });
+                dayDiv.innerHTML = html;
+                wrapper.appendChild(dayDiv);
+            });
+            container.appendChild(wrapper);
+        }
+
+        // --- MONTH RENDERER ---
+        function renderMonthView(container, eventsMap) {
+            const wrapper = document.createElement('div');
+            wrapper.style.display = 'flex';
+            wrapper.style.flexDirection = 'column';
+            wrapper.style.flexGrow = '1';
+            wrapper.style.overflow = 'hidden';
+            wrapper.style.minHeight = '0';
+
+            // Header Controls
+            const header = document.createElement('div');
+            header.className = 'nav-header';
+            const monthLabel = formatZonedDate(viewDate, { month: 'long', year: 'numeric' });
+            header.innerHTML = `
+                <button class="nav-arrow" onclick="changeMonth(-1)">&lt;</button>
+                <div class="nav-title">${monthLabel}</div>
+                <button class="nav-arrow" onclick="changeMonth(1)">&gt;</button>
+            `;
+            wrapper.appendChild(header);
+
+            // Weekday Headers
+            const grid = document.createElement('div');
+            grid.className = 'month-grid';
+
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            days.forEach(d => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'weekday-label';
+                dayHeader.innerText = d;
+                grid.appendChild(dayHeader);
+            });
+
+            // Calculate Grid
+            const year = viewDate.getFullYear();
+            const month = viewDate.getMonth();
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+
+            const startDayIndex = firstDay.getDay(); // 0-6
+            const totalDays = lastDay.getDate();
+
+            // Empty slots before first day
+            for (let i = 0; i < startDayIndex; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'calendar-day empty';
+                grid.appendChild(empty);
+            }
+
+            // Days
+            for (let i = 1; i <= totalDays; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'calendar-day';
+
+                // Check for Today
+                const today = getZonedDate();
+                if (i === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                    cell.classList.add('today');
+                }
+
+                // Find Events - OPTIMIZED
+                const key = year + '-' + month + '-' + i;
+                const dayEvents = (eventsMap && eventsMap[key]) ? eventsMap[key] : [];
+
+                let eventsHtml = '';
+                for (let j = 0; j < dayEvents.length; j++) {
+                    const evt = dayEvents[j];
+                    const styleClass = evt.calendarId ? 'cal-style-' + getCalendarStyle(evt.calendarId) : '';
+                    let label = evt.title;
+                    if (!evt.isAllDay && evt.start) {
+                        const t = formatZonedTime(evt.start);
+                        label = t + ' ' + label;
+                    }
+                    eventsHtml += `<div class="month-event ${styleClass}" onclick="editEvent('${evt.id}', event)">${label}</div>`;
+                }
+
+                cell.innerHTML = `<div class="day-number">${i}</div><div class="day-events">${eventsHtml}</div>`;
+                cell.onclick = () => jumpToDay(i);
+                grid.appendChild(cell);
+            }
+
+            wrapper.appendChild(grid);
+            container.appendChild(wrapper);
+        }
+
+        // --- DAY RENDERER ---
+        function renderDayView(container, eventsMap) {
+            // Header
+            const header = document.createElement('div');
+            header.className = 'nav-header';
+            const dateLabel = formatZonedDate(viewDate, { weekday: 'long', month: 'short', day: 'numeric' });
+            header.innerHTML = `
+                <button class="nav-arrow" onclick="changeDay(-1)">&lt;</button>
+                <div class="nav-title">${dateLabel}</div>
+                <button class="nav-arrow" onclick="changeDay(1)">&gt;</button>
+            `;
+            container.appendChild(header);
+
+            // Filter Events - OPTIMIZED
+            const key = viewDate.getFullYear() + '-' + viewDate.getMonth() + '-' + viewDate.getDate();
+            const dayEvents = (eventsMap && eventsMap[key]) ? eventsMap[key] : [];
+
+            // Content List (Hourly blocks or just a list)
+            // A scrollable list of time slots is cleaner for E-ink than a complex grid
+            const list = document.createElement('div');
+            list.className = 'day-schedule';
+
+            // Create slots for hours 6 AM to 10 PM (simplified view)
+            // Or just list the events sorted
+            if (dayEvents.length === 0) {
+                list.innerHTML = '<div style="padding:40px; text-align:center; color:#666;">No events scheduled.</div>';
+            } else {
+                // Group by hour for a structured look
+                for (let hour = 0; hour < 24; hour++) {
+                    const hourEvents = dayEvents.filter(e => {
+                        const d = new Date(e.start);
+                        const zoned = getZonedDate(d);
+                        return zoned.getHours() === hour;
+                    });
+
+                    if (hourEvents.length > 0) {
+                        const slot = document.createElement('div');
+                        slot.className = 'hour-slot';
+
+                        const displayHour = hour === 0 ? '12 AM' : (hour > 12 ? (hour - 12) + ' PM' : hour + ' AM');
+
+                        let eventHtml = '';
+                        hourEvents.forEach(e => {
+                            let timeStr;
+                            if (e.isAllDay) {
+                                timeStr = "All day";
+                            } else {
+                                const startStr = formatZonedTime(e.start);
+                                const endStr = e.end ? formatZonedTime(e.end) : formatZonedTime(new Date(new Date(e.start).getTime() + 3600000));
+                                timeStr = `${startStr} – ${endStr}`;
+                            }
+                            const styleClass = e.calendarId ? 'cal-style-' + getCalendarStyle(e.calendarId) : '';
+                            eventHtml += `<div class="day-event-chip ${styleClass}" onclick="editEvent('${e.id}')" style="cursor:pointer">${timeStr} - ${e.title}</div>`;
+                        });
+
+                        slot.innerHTML = `
+                            <div class="slot-time">${displayHour}</div>
+                            <div class="slot-events">${eventHtml}</div>
+                        `;
+                        list.appendChild(slot);
+                    }
+                }
+            }
+            container.appendChild(list);
+        }
+
+        // --- NAVIGATION LOGIC ---
+        function changeMonth(delta) {
+            viewDate.setMonth(viewDate.getMonth() + delta);
+            renderView();
+        }
+
+        function changeDay(delta) {
+            viewDate.setDate(viewDate.getDate() + delta);
+            renderView();
+        }
+
+        function jumpToDay(dayNum) {
+            viewDate.setDate(dayNum);
+            switchView('day');
+        }
+
+        function goToToday() {
+            viewDate = getZonedDate();
+            renderView();
+        }
+
+        function updateTodayButtonVisibility() {
+            const btn = document.getElementById('today-btn-bottom');
+            if (!btn) return;
+
+            const today = getZonedDate();
+            let isToday = false;
+
+            if (currentView === 'agenda') {
+                isToday = true;
+            } else if (currentView === 'month') {
+                isToday = viewDate.getMonth() === today.getMonth() && viewDate.getFullYear() === today.getFullYear();
+            } else if (currentView === 'day') {
+                isToday = viewDate.getDate() === today.getDate() && viewDate.getMonth() === today.getMonth() && viewDate.getFullYear() === today.getFullYear();
+            }
+
+            btn.style.display = isToday ? 'none' : 'inline-block';
+        }
+
+        const calendarStyleMap = {};
+        let calendarStyleAssignments = {};
+        function getCalendarStyle(calendarId) {
+            if (!calendarId) return 0;
+            // Check user assignment first
+            if (calendarStyleAssignments[calendarId] !== undefined) {
+                return calendarStyleAssignments[calendarId];
+            }
+            // Fall back to hash-based auto assignment
+            if (calendarStyleMap[calendarId] !== undefined) return calendarStyleMap[calendarId];
+            let hash = 0;
+            for (let i = 0; i < calendarId.length; i++) {
+                hash = ((hash << 5) - hash) + calendarId.charCodeAt(i);
+                hash |= 0;
+            }
+            // Auto-assignment order: solid white, solid black, dotted white, dotted black,
+            //                        dashed white, dashed black, rounded white, rounded black
+            const assignmentOrder = [1, 5, 2, 6, 3, 7, 4, 8];
+            const style = assignmentOrder[Math.abs(hash) % 8];
+            calendarStyleMap[calendarId] = style;
+            return style;
+        }
+
+        // ==========================================
+        //  GOOGLE MODE
+        // ==========================================
+        function initGoogleMode() {
+            document.getElementById('app-title').innerText = "Calendar (Google)";
+            document.getElementById('add-btn').style.display = 'block'; // Ensure add button is shown
+            document.getElementById('cal-list-btn-bottom').style.display = 'inline-block'; // Show calendar list button
+
+            gapi.load('client', async () => {
+                try {
+                    await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
+
+                    const fragmentString = location.hash.substring(1);
+                    const params = new URLSearchParams(fragmentString);
+                    const newAccessToken = params.get('access_token');
+
+                    if (newAccessToken) {
+                        localStorage.setItem('google_calendar_token', newAccessToken);
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        gapi.client.setToken({ access_token: newAccessToken });
+                        document.getElementById('auth-overlay').style.display = 'none';
+                        await loadCalendarList(); // Fetch list first
+                        await loadGoogleEvents();
+                    } else {
+                        const token = localStorage.getItem('google_calendar_token');
+                        if (token) {
+                            gapi.client.setToken({ access_token: token });
+                            document.getElementById('auth-overlay').style.display = 'none';
+                            await loadCalendarList(); // Fetch list first
+                            await loadGoogleEvents();
+                        } else {
+                            // Auto-login logic
+                            if (!location.hash.includes('error=')) {
+                                document.getElementById('auth-overlay').style.display = 'flex';
+                            } else {
+                                document.getElementById('auth-overlay').style.display = 'flex';
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to initialize Google API:', JSON.stringify(e));
+                    document.getElementById('status-msg').innerText = 'Error.';
+                }
+            });
+        }
+
+        async function loadCalendarList() {
+            try {
+                const res = await gapi.client.calendar.calendarList.list();
+                calendars = res.result.items;
+
+                // If no selection yet, select primary by default
+                if (selectedCalendarIds.length === 0) {
+                    const primary = calendars.find(c => c.primary);
+                    if (primary) selectedCalendarIds.push(primary.id);
+                }
+
+                // Clean up selection (remove ids that no longer exist)
+                selectedCalendarIds = selectedCalendarIds.filter(id => calendars.find(c => c.id === id));
+                localStorage.setItem('rekindle_selected_calendars', JSON.stringify(selectedCalendarIds));
+
+            } catch (e) {
+                console.error("Error loading calendar list", e);
+                if (e.status === 401 || e.status === 403) {
+                    handleUnauthorized();
+                }
+            }
+        }
+
+        function openCalendarListModal() {
+            const container = document.getElementById('calendar-list-container');
+            container.innerHTML = '';
+
+            calendars.forEach(cal => {
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.flexDirection = 'column';
+                row.style.padding = '12px';
+                row.style.borderBottom = '2px solid #ccc';
+                row.style.position = 'relative';
+
+                // Top row: checkbox + name + style button
+                const topRow = document.createElement('div');
+                topRow.style.display = 'flex';
+                topRow.style.alignItems = 'center';
+
+                const checkbox = document.createElement('div');
+                checkbox.className = 'rekindle-checkbox';
+                if (selectedCalendarIds.includes(cal.id)) checkbox.classList.add('checked');
+                checkbox.dataset.calId = cal.id;
+                checkbox.onclick = () => {
+                    checkbox.classList.toggle('checked');
+                };
+
+                const label = document.createElement('span');
+                label.innerText = cal.summaryOverride || cal.summary;
+                label.style.fontWeight = 'bold';
+                label.style.flexGrow = '1';
+                label.style.marginRight = '10px';
+
+                const currentStyle = getCalendarStyle(cal.id);
+
+                const stylePreview = document.createElement('div');
+                stylePreview.className = 'style-preview cal-style-' + currentStyle;
+                stylePreview.style.width = '24px';
+                stylePreview.style.height = '24px';
+                stylePreview.style.marginRight = '8px';
+                stylePreview.style.cursor = 'pointer';
+
+                stylePreview.onclick = () => {
+                    const existing = document.querySelector('.style-dropdown');
+                    if (existing) {
+                        const sameCal = existing.dataset.calId === cal.id;
+                        existing.remove();
+                        if (sameCal) return;
+                    }
+
+                    const dropdown = document.createElement('div');
+                    dropdown.className = 'style-dropdown';
+                    dropdown.dataset.calId = cal.id;
+
+                    // Position fixed relative to the trigger button
+                    const rect = stylePreview.getBoundingClientRect();
+                    dropdown.style.position = 'fixed';
+                    dropdown.style.left = (rect.right + 4) + 'px';
+                    dropdown.style.top = rect.top + 'px';
+                    dropdown.style.right = 'auto';
+                    dropdown.style.marginTop = '0';
+
+                    function makePreview(s) {
+                        const preview = document.createElement('div');
+                        preview.className = 'style-preview cal-style-' + s;
+                        preview.style.width = '24px';
+                        preview.style.height = '24px';
+                        preview.style.marginRight = '8px';
+                        if (currentStyle === s) preview.classList.add('selected');
+                        preview.onclick = () => {
+                            calendarStyleAssignments[cal.id] = s;
+                            stylePreview.className = 'style-preview cal-style-' + s;
+                            Array.from(dropdown.querySelectorAll('.style-preview')).forEach(child => {
+                                child.classList.remove('selected');
+                            });
+                            preview.classList.add('selected');
+
+                            // Persist and close dropdown only
+                            localStorage.setItem('rekindle_calendar_styles_v2', JSON.stringify(calendarStyleAssignments));
+                            if (currentUser) {
+                                db.collection('users').doc(currentUser.uid).collection('settings').doc('integrations').set({
+                                    calendar_styles_v2: calendarStyleAssignments
+                                }, { merge: true }).catch(e => console.error("Error saving calendar settings:", e));
+                            }
+                            dropdown.remove();
+                        };
+                        return preview;
+                    }
+
+                    // Light group
+                    const lightLabel = document.createElement('div');
+                    lightLabel.innerText = 'Light';
+                    lightLabel.style.fontSize = '0.7rem';
+                    lightLabel.style.fontWeight = 'bold';
+                    lightLabel.style.marginBottom = '5px';
+                    lightLabel.style.textTransform = 'uppercase';
+
+                    const lightRow = document.createElement('div');
+                    lightRow.style.display = 'flex';
+                    lightRow.style.marginBottom = '10px';
+                    for (let s = 1; s <= 4; s++) {
+                        lightRow.appendChild(makePreview(s));
+                    }
+
+                    // Dark group
+                    const darkLabel = document.createElement('div');
+                    darkLabel.innerText = 'Dark';
+                    darkLabel.style.fontSize = '0.7rem';
+                    darkLabel.style.fontWeight = 'bold';
+                    darkLabel.style.marginBottom = '5px';
+                    darkLabel.style.textTransform = 'uppercase';
+
+                    const darkRow = document.createElement('div');
+                    darkRow.style.display = 'flex';
+                    for (let s = 5; s <= 8; s++) {
+                        darkRow.appendChild(makePreview(s));
+                    }
+
+                    dropdown.appendChild(lightLabel);
+                    dropdown.appendChild(lightRow);
+                    dropdown.appendChild(darkLabel);
+                    dropdown.appendChild(darkRow);
+                    document.body.appendChild(dropdown);
+                };
+
+                topRow.appendChild(checkbox);
+                topRow.appendChild(label);
+                topRow.appendChild(stylePreview);
+                row.appendChild(topRow);
+                container.appendChild(row);
+            });
+
+            document.getElementById('calendar-list-modal').style.display = 'flex';
+        }
+
+        function saveCalendarSelection() {
+            document.querySelectorAll('.style-dropdown').forEach(d => d.remove());
+            const rows = document.querySelectorAll('#calendar-list-container > div');
+            selectedCalendarIds = [];
+            rows.forEach(row => {
+                const checkbox = row.querySelector('.rekindle-checkbox');
+                if (!checkbox) return;
+                const calId = checkbox.dataset.calId;
+                if (checkbox.classList.contains('checked')) {
+                    selectedCalendarIds.push(calId);
+                }
+            });
+            localStorage.setItem('rekindle_selected_calendars', JSON.stringify(selectedCalendarIds));
+            localStorage.setItem('rekindle_calendar_styles_v2', JSON.stringify(calendarStyleAssignments));
+
+            // Save to Firestore
+            if (currentUser) {
+                db.collection('users').doc(currentUser.uid).collection('settings').doc('integrations').set({
+                    google_calendar_ids: selectedCalendarIds,
+                    calendar_styles_v2: calendarStyleAssignments
+                }, { merge: true }).catch(e => console.error("Error saving calendar settings:", e));
+            }
+
+            document.getElementById('calendar-list-modal').style.display = 'none';
+            loadGoogleEvents();
+        }
+
+        function oauthSignIn() {
+            const endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+            const form = document.createElement('form');
+            form.setAttribute('method', 'GET');
+            form.setAttribute('action', endpoint);
+            // Updated scope to include calendar.readonly for list? No, events scope covers it usually, but let's check.
+            // https://www.googleapis.com/auth/calendar.events is enough for read/write events.
+            // We might need https://www.googleapis.com/auth/calendar.readonly to list calendars?
+            // Actually 'https://www.googleapis.com/auth/calendar' is full access.
+            // Let's stick with specific scopes. 
+            // We need 'https://www.googleapis.com/auth/calendar.readonly' or 'https://www.googleapis.com/auth/calendar' to list calendars if events scope isn't enough.
+            // 'https://www.googleapis.com/auth/calendar.events' allows "View and edit events on all your calendars"
+            // We probably need 'https://www.googleapis.com/auth/calendar.readonly' to list the calendars themselves.
+            // Let's add it to be safe, or just use the big one if we want full control.
+            // But per previous code, we just had SCOPES const. Let's update SCOPES const if needed.
+            // For now, let's assume valid scope.
+
+            const params = { 'client_id': CLIENT_ID, 'redirect_uri': window.location.href.split('#')[0], 'response_type': 'token', 'scope': SCOPES };
+
+            for (var p in params) {
+                var input = document.createElement('input');
+                input.setAttribute('type', 'hidden');
+                input.setAttribute('name', p);
+                input.setAttribute('value', params[p]);
+                form.appendChild(input);
+            }
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function handleUnauthorized() {
+            console.warn("Unauthorized (401). Clearing token and redirecting...");
+            localStorage.removeItem('google_calendar_token');
+            // Prevent rapid redirect loops
+            const lastAuth = sessionStorage.getItem('last_auth_attempt') || 0;
+            const now = Date.now();
+            if (now - lastAuth < 5000) {
+                console.error("Auth loop detected.");
+                document.getElementById('auth-overlay').style.display = 'flex';
+                document.querySelector('#auth-overlay h2').innerText = "Login Failed";
+                document.querySelector('#auth-overlay p').innerText = "Please try again manually.";
+                return;
+            }
+            sessionStorage.setItem('last_auth_attempt', now.toString());
+            oauthSignIn();
+        }
+
+        async function fetchCalendarEventsWithPagination(calId) {
+            const allItems = [];
+            let pageToken = null;
+
+            const now = getZonedDate();
+            const oneMonthAgo = new Date(now);
+            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+            const oneYearFuture = new Date(now);
+            oneYearFuture.setFullYear(oneYearFuture.getFullYear() + 1);
+
+            do {
+                const params = {
+                    'calendarId': calId,
+                    'timeMin': oneMonthAgo.toISOString(),
+                    'timeMax': oneYearFuture.toISOString(),
+                    'showDeleted': false,
+                    'singleEvents': true,
+                    'maxResults': 250,
+                    'orderBy': 'startTime'
+                };
+                if (pageToken) params.pageToken = pageToken;
+
+                const res = await gapi.client.calendar.events.list(params);
+                const items = res.result.items || [];
+                allItems.push.apply(allItems, items);
+                pageToken = res.result.nextPageToken || null;
+            } while (pageToken);
+
+            return allItems;
+        }
+
+        async function loadGoogleEvents() {
+            document.getElementById('status-msg').innerText = "Syncing...";
+
+            if (selectedCalendarIds.length === 0) {
+                events = [];
+                renderView();
+                document.getElementById('status-msg').innerText = "No calendar selected.";
+                return;
+            }
+
+            try {
+                let allEvents = [];
+
+                // Fetch from all selected calendars in parallel
+                const promises = selectedCalendarIds.map(async (calId) => {
+                    try {
+                        const items = await fetchCalendarEventsWithPagination(calId);
+
+                        return items.map(i => {
+                            let start;
+                            let end = null;
+                            if (i.start.date) {
+                                // All-day event (YYYY-MM-DD). Use target zone midnight.
+                                start = getUTCFromWallClock(i.start.date, '00:00');
+                                if (i.end && i.end.date) {
+                                    end = getUTCFromWallClock(i.end.date, '00:00');
+                                }
+                            } else {
+                                // Timed event (ISO string)
+                                start = i.start.dateTime;
+                                if (i.end && i.end.dateTime) {
+                                    end = i.end.dateTime;
+                                }
+                            }
+
+                            return {
+                                id: i.id,
+                                title: i.summary,
+                                start: start,
+                                end: end,
+                                isAllDay: !!i.start.date,
+                                calendarId: calId // Store origin calendar
+                            };
+                        });
+                    } catch (err) {
+                        console.warn(`Failed to fetch for ${calId}`, err);
+                        if (err.status === 401 || err.status === 403) {
+                            throw err; // Let outer catch handle auth
+                        }
+                        return [];
+                    }
+                });
+
+                const results = await Promise.all(promises);
+                results.forEach(items => {
+                    allEvents = allEvents.concat(items);
+                });
+
+                events = allEvents;
+                renderView();
+                document.getElementById('status-msg').innerText = "Synced.";
+            } catch (e) {
+                console.error(e);
+                document.getElementById('status-msg').innerText = "Error.";
+                if (e.status === 401 || e.status === 403) {
+                    // Token expired during use -> Re-auth
+                    handleUnauthorized();
+                }
+            }
+        }
+
+        // ==========================================
+        //  NATIVE / CALDAV MODE
+        // ==========================================
+        function initNativeMode() {
+            document.getElementById('app-title').innerText = "Calendar";
+
+            // If CalDAV is set, hide Add button (read-only)
+            if (calDavUrl) {
+                document.getElementById('add-btn').style.display = 'none';
+                document.getElementById('cal-list-btn-bottom').style.display = 'none';
+                loadCalDAVEvents();
+            } else {
+                // Enabled for Native AND Google now
+                document.getElementById('add-btn').style.display = 'block';
+                document.getElementById('cal-list-btn-bottom').style.display = 'none';
+
+                if (googleEnabled) {
+                    // Already loaded by initGoogleMode
+                    // But if we came here via toggle or error, re-show tools if applicable
+                    document.getElementById('cal-list-btn-bottom').style.display = 'inline-block';
+                } else if (currentUser) {
+                    loadCloudEvents();
+                }
+                else {
+                    loadLocalEvents();
+                }
+            }
+        }
+
+        function loadLocalEvents() {
+            events = JSON.parse(localStorage.getItem('rekindle_events_local')) || [];
+            renderView();
+        }
+
+        function loadCloudEvents() {
+            db.collection('users').doc(currentUser.uid).collection('events')
+                .onSnapshot(snap => {
+                    events = [];
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        events.push({ id: doc.id, title: d.title, start: d.start, end: d.end, isAllDay: d.isAllDay });
+                    });
+                    renderView();
+                });
+        }
+
+
+        async function loadCalDAVEvents() {
+            document.getElementById('status-msg').innerText = "Fetching CalDAV...";
+            // We use the same proxy pattern as other apps to bypass CORS
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(calDavUrl)}`;
+
+            try {
+                const res = await fetch(proxyUrl);
+                const text = await res.text();
+
+                if (!text || text.trim() === "") throw new Error("Empty response");
+
+                events = parseICS(text);
+                document.getElementById('status-msg').innerText = "Synced (CalDAV)";
+                renderView();
+            } catch (e) {
+                console.error(e);
+                document.getElementById('status-msg').innerText = "CalDAV Error";
+                // Fallback to local
+                if (!events.length && currentUser) loadCloudEvents();
+                else if (!events.length) loadLocalEvents();
+            }
+        }
+
+        function parseICS(icsData) {
+            // Simple regex parser for basic event data
+            // VEVENT ... SUMMARY: ... DTSTART: ... END:VEVENT
+            const eventsFound = [];
+            const veventRegex = /BEGIN:VEVENT([\s\S]*?)END:VEVENT/g;
+
+            let match;
+            while ((match = veventRegex.exec(icsData)) !== null) {
+                const block = match[1];
+
+                const summaryMatch = /SUMMARY:(.*)/.exec(block);
+                const dtStartMatch = /DTSTART(?:;.*)?:(\w+)/.exec(block);
+                const dtEndMatch = /DTEND(?:;.*)?:(\w+)/.exec(block);
+
+                if (summaryMatch && dtStartMatch) {
+                    const title = summaryMatch[1].trim();
+                    const rawDate = dtStartMatch[1].trim();
+                    const rawEndDate = dtEndMatch ? dtEndMatch[1].trim() : null;
+
+                    // Basic date parsing (YYYYMMDDTHHMMSS or YYYYMMDD)
+                    let isoDate = null;
+                    let isoEndDate = null;
+                    let isAllDay = false;
+
+                    const parseICSTime = (raw) => {
+                        if (raw.length === 8) {
+                            // Date only
+                            return { date: `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`, allDay: true };
+                        } else if (raw.length >= 15) {
+                            // DateTime
+                            return { date: `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}T${raw.slice(9, 11)}:${raw.slice(11, 13)}:${raw.slice(13, 15)}`, allDay: false };
+                        }
+                        return null;
+                    };
+
+                    const startObj = parseICSTime(rawDate);
+                    if (startObj) {
+                        isoDate = startObj.date;
+                        isAllDay = startObj.allDay;
+                    }
+
+                    if (rawEndDate) {
+                        const endObj = parseICSTime(rawEndDate);
+                        if (endObj) isoEndDate = endObj.date;
+                    }
+
+
+                    if (isoDate) {
+                        eventsFound.push({
+                            id: 'caldav_' + Math.random(), // generate temp id
+                            title: title,
+                            start: isoDate,
+                            end: isoEndDate,
+                            isAllDay: isAllDay
+                        });
+                    }
+                }
+            }
+            return eventsFound;
+        }
+
+        let editingEventId = null;
+        let editingCalendarId = null; // Store which calendar the event belongs to
+
+        function openAddModal() {
+            editingEventId = null;
+            editingCalendarId = null;
+            document.getElementById('modal-title').innerText = "New Event";
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('evt-title').value = '';
+            // Default to currently viewed date if in month/day view
+            const defaultDate = viewDate.toISOString().split('T')[0];
+            document.getElementById('evt-date').value = defaultDate;
+            document.getElementById('evt-time').value = '';
+            document.getElementById('evt-end-time').value = '';
+            document.getElementById('modal-del-btn').style.display = 'none'; // New event = no delete option in modal
+
+            // Populate Calendar Dropdown
+            const calSelect = document.getElementById('evt-calendar-select');
+            const calGroup = document.getElementById('calendar-select-group');
+            calSelect.innerHTML = '';
+
+            if (googleEnabled && calendars.length > 0) {
+                calGroup.style.display = 'flex';
+                // Filter to only writable calendars? For now, list all selected ones or all writable ones?
+                // Ideally list all writable calendars.
+                // gapi calendar list includes 'accessRole'. 'owner', 'writer' are good.
+
+                // For simplicity, list all calendars we have metadata for.
+                calendars.forEach(c => {
+                    // Check access role if available, or assume writable if primary
+                    // We'll just list them all and let API fail if read-only
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.innerText = c.summaryOverride || c.summary;
+                    if (c.primary) opt.selected = true;
+                    calSelect.appendChild(opt);
+                });
+            } else {
+                calGroup.style.display = 'none';
+            }
+        }
+
+        function editEvent(id, calendarId, e) {
+            // Check if e is the second arg (click event) or third (calendarId was passed)
+            // The HTML onclicks were: editEvent('id') or editEvent('id', event)
+            // We changed render to: editEvent('id', 'calId') (in agenda) or editEvent('id', event) (in month?)
+
+            // Let's normalize. renderAgenda passes: editEvent('${e.id}', '${e.calendarId || ''}') -> this refers to deleteEvent actually.
+            // Wait, I updated renderAgenda to: onclick="editEvent('${e.id}')"
+            // And renderMonthView: onclick="editEvent('${evt.id}', event)"
+
+            // So editEvent signature is still (id, event) mostly.
+            // But we need to find the event object to know its calendarId.
+
+            // If called as editEvent(id, event)
+            if (typeof calendarId === 'object' && calendarId.stopPropagation) {
+                e = calendarId;
+                calendarId = null;
+            }
+
+            if (e) e.stopPropagation(); // prevent day click
+
+            const evt = events.find(x => x.id === id);
+            if (!evt) return;
+
+            editingEventId = id;
+            editingCalendarId = evt.calendarId; // Get from event object
+
+            document.getElementById('modal-title').innerText = "Edit Event";
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('modal-del-btn').style.display = 'block';
+
+            document.getElementById('evt-title').value = evt.title;
+
+            // Calendar Select logic
+            const calSelect = document.getElementById('evt-calendar-select');
+            const calGroup = document.getElementById('calendar-select-group');
+
+            if (googleEnabled && calendars.length > 0) {
+                calGroup.style.display = 'flex';
+                calSelect.innerHTML = '';
+                calendars.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.innerText = c.summaryOverride || c.summary;
+                    if (c.id === editingCalendarId) opt.selected = true;
+                    calSelect.appendChild(opt);
+                });
+                // If editing, maybe disable changing calendar? 
+                // Moving events between calendars is a move operation. 
+                // For MVP, just let them see it. Changing it implies move.
+                // allow changing.
+            } else {
+                calGroup.style.display = 'none';
+            }
+
+
+            // Parsing start/end for the inputs
+            const startZoned = getZonedDate(new Date(evt.start));
+            document.getElementById('evt-date').value = startZoned.toISOString().split('T')[0]; // YYYY-MM-DD
+
+            if (evt.isAllDay) {
+                document.getElementById('evt-time').value = '';
+                document.getElementById('evt-end-time').value = '';
+            } else {
+                // Format HH:mm
+                const pad = n => n.toString().padStart(2, '0');
+                document.getElementById('evt-time').value = pad(startZoned.getHours()) + ':' + pad(startZoned.getMinutes());
+
+                if (evt.end) {
+                    const endZoned = getZonedDate(new Date(evt.end));
+                    document.getElementById('evt-end-time').value = pad(endZoned.getHours()) + ':' + pad(endZoned.getMinutes());
+                } else {
+                    document.getElementById('evt-end-time').value = '';
+                }
+            }
+        }
+
+        async function saveEvent() {
+            const title = document.getElementById('evt-title').value;
+            const date = document.getElementById('evt-date').value;
+            const time = document.getElementById('evt-time').value;
+            const endTime = document.getElementById('evt-end-time').value;
+            const targetCalendarId = document.getElementById('evt-calendar-select').value;
+
+            if (!title || !date) return showModal("Title and Date required");
+
+            let isAllDay = false;
+            let startDateTime, endDateTime;
+            let googleStart, googleEnd;
+
+            if (!time) {
+                isAllDay = true;
+                // Treat as all day
+                startDateTime = getUTCFromWallClock(date, "00:00");
+
+                // For Google, all-day is just date string YYYY-MM-DD
+                googleStart = { date: date };
+
+                // End is next day
+                const d = new Date(date);
+                d.setDate(d.getDate() + 1);
+                const nextDay = d.toISOString().split('T')[0];
+
+                endDateTime = getUTCFromWallClock(nextDay, "00:00");
+                googleEnd = { date: nextDay };
+            } else {
+                startDateTime = getUTCFromWallClock(date, time);
+
+                // For Google DateTime
+                googleStart = { dateTime: startDateTime };
+
+                if (endTime) {
+                    endDateTime = getUTCFromWallClock(date, endTime);
+                    googleEnd = { dateTime: endDateTime };
+                } else {
+                    // Default 1 hour
+                    const s = new Date(startDateTime);
+                    s.setHours(s.getHours() + 1);
+                    endDateTime = s.toISOString();
+                    googleEnd = { dateTime: endDateTime };
+                }
+            }
+
+            const newEvt = { title: title, start: startDateTime, end: endDateTime, isAllDay: isAllDay };
+
+            try {
+                if (googleEnabled) {
+                    const resource = {
+                        summary: title,
+                        start: googleStart,
+                        end: googleEnd
+                    };
+
+                    // Determine which calendar to save to
+                    // If editing, try to use original calendar unless changed?
+                    // If changed, we need to move it (delete + insert) or use move API.
+                    // Simplified: Use targetCalendarId from dropdown using move API if edited.
+
+                    const calId = targetCalendarId || 'primary';
+
+                    document.getElementById('status-msg').innerText = "Saving to Google...";
+
+                    if (editingEventId) {
+                        // Update
+                        if (editingCalendarId && editingCalendarId !== calId) {
+                            // Move event
+                            await gapi.client.calendar.events.move({
+                                calendarId: editingCalendarId,
+                                eventId: editingEventId,
+                                destination: calId
+                            });
+                            // Then update details
+                            await gapi.client.calendar.events.update({
+                                calendarId: calId,
+                                eventId: editingEventId,
+                                resource: resource
+                            });
+                        } else {
+                            // Just update
+                            await gapi.client.calendar.events.update({
+                                calendarId: calId,
+                                eventId: editingEventId,
+                                resource: resource
+                            });
+                        }
+                    } else {
+                        // Insert
+                        await gapi.client.calendar.events.insert({
+                            calendarId: calId,
+                            resource: resource
+                        });
+                    }
+
+                    document.getElementById('modal-overlay').style.display = 'none';
+                    await loadGoogleEvents(); // Refresh
+                } else if (currentUser) {
+                    if (editingEventId) {
+                        db.collection('users').doc(currentUser.uid).collection('events').doc(editingEventId).update(newEvt);
+                    } else {
+                        db.collection('users').doc(currentUser.uid).collection('events').add(newEvt);
+                    }
+                    document.getElementById('modal-overlay').style.display = 'none';
+                } else {
+                    if (editingEventId) {
+                        const idx = events.findIndex(e => e.id === editingEventId);
+                        if (idx !== -1) {
+                            newEvt.id = editingEventId;
+                            events[idx] = newEvt;
+                        }
+                    } else {
+                        newEvt.id = Date.now().toString();
+                        events.push(newEvt);
+                    }
+                    localStorage.setItem('rekindle_events_local', JSON.stringify(events));
+                    renderView();
+                    document.getElementById('modal-overlay').style.display = 'none';
+                }
+            } catch (e) {
+                console.error(e);
+                showModal("Error saving event: " + e.message);
+                document.getElementById('status-msg').innerText = "Error saving.";
+            }
+        }
+
+        async function deleteEvent(id, calendarId) {
+            showModal("Delete event?", true, async (confirmed) => {
+                if (!confirmed) return;
+
+                try {
+                    if (googleEnabled) {
+                        document.getElementById('status-msg').innerText = "Deleting...";
+
+                        // Use passed calendarId (from delete btn) or look it up
+                        let targetCalId = calendarId;
+                        if (!targetCalId) {
+                            // Try find in events
+                            const evt = events.find(e => e.id === id);
+                            if (evt) targetCalId = evt.calendarId;
+                        }
+
+                        if (!targetCalId) targetCalId = 'primary'; // Fallback
+
+                        await gapi.client.calendar.events.delete({
+                            calendarId: targetCalId,
+                            eventId: id
+                        });
+                        await loadGoogleEvents();
+                    } else if (currentUser) {
+                        db.collection('users').doc(currentUser.uid).collection('events').doc(id).delete();
+                    } else {
+                        events = events.filter(e => e.id !== id);
+                        localStorage.setItem('rekindle_events_local', JSON.stringify(events));
+                        renderView();
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showModal("Error deleting: " + e.message);
+                }
+            });
+        }
+
+    </script>
+
+    <script>
+
+
+
+
+        function toggleFullScreen() {
+            document.querySelector('.window').classList.toggle('fullscreen');
+        }
+
+
+    </script>
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675"
+        data-utcoffset="11"></script>
+    <!-- STANDARD MODAL POPUP -->
+    <div id="generic-modal-overlay">
+        <div class="modal-box">
+            <div id="modal-message" class="modal-text"></div>
+            <div id="modal-btns" class="modal-btns"></div>
+        </div>
+    </div>
+
+
+</body>
+
+</html>

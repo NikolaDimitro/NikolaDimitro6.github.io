@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta charset="UTF-8">
+    
+    <title>Privacy Policy</title>
+    <style>
+        /* SYSTEM 7 AESTHETICS */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border: 2px solid #000000;
+            --shadow: 4px 4px 0px #000000;
+            --stripe-pattern: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 3px, #000 4px);
+        }
+
+        body {
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -o-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background-repeat: repeat;
+            background-position: top left;
+
+            font-family: "Geneva", "Verdana", sans-serif;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #e5e5e5;
+            /* Background managed by settings */
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* WINDOW FRAME */
+        .window {
+            background: white;
+            border: 2px solid black;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            min-height: 90vh;
+            width: 100%;
+            max-width: 800px;
+            position: relative;
+        }
+
+        /* TITLE BAR */
+        .title-bar {
+            height: 35px;
+            border-bottom: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .title-stripes {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            left: 4px;
+            right: 4px;
+            background-image: var(--stripe-pattern);
+            z-index: 0;
+        }
+
+        .title-text {
+            background: white;
+            padding: 0 10px;
+            font-weight: bold;
+            z-index: 1;
+            font-size: 1.1rem;
+            display: inline-flex;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        /* CLOSE BUTTON (HOME) */
+        .close-box {
+            position: absolute;
+            left: 10px;
+            width: 18px;
+            height: 18px;
+            border: 2px solid black;
+            background: white;
+            z-index: 2;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            line-height: 1;
+            box-shadow: 2px 2px 0 black;
+        }
+
+        .close-box:active {
+            background: black;
+            color: white;
+            transform: translate(1px, 1px);
+            box-shadow: none;
+        }
+
+        /* CONTENT AREA */
+        .window-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 30px;
+            background: white;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            border-bottom: 2px solid black;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            margin-top: 30px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        ul {
+            list-style-type: square;
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+    </style>
+    <script src="js/i18n.js" data-i18n-file="privacy"></script>
+    <script src="theme.js?v=18"></script>
+</head>
+
+<body>
+
+    <div class="window">
+        <div class="title-bar">
+            <div class="title-stripes"></div>
+            <div class="close-box" onclick="window.location.href='index'" data-i18n="battleship.btn.close">X</div>
+            <span class="title-text" data-i18n="privacy.title">Privacy Policy</span>
+        </div>
+
+        <div class="window-content">
+            <h1 data-i18n="privacy.title">Privacy Policy</h1>
+            <p data-i18n="privacy.last_updated">Last Updated: 3rd June 2026</p>
+
+            <div class="intro-block" data-i18n-html="privacy.intro">
+                ReKindle is a web application designed to provide a dashboard for E-ink
+                devices. We prioritize your
+                privacy and transparency.</div>
+
+            <h2 data-i18n="privacy.section.1.title">1. Data Architecture</h2>
+            <div data-i18n-html="privacy.section.1.body"></div>
+
+            <h2 data-i18n="privacy.section.2.title">2. Google User Data (Tasks, Calendar, Contacts)</h2>
+            <div data-i18n-html="privacy.section.2.body"></div>
+            <p><em>ReKindle's use and transfer to any other app of information received from Google APIs will adhere to
+                    <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank"
+                        style="color:black;">Google API Services User Data Policy</a>, including the Limited Use
+                    requirements.</em></p>
+
+            <h2 data-i18n="privacy.section.3.title">3. Data Protection Mechanisms</h2>
+            <div data-i18n-html="privacy.section.3.body"></div>
+
+            <h2 data-i18n="privacy.section.4.title">4. Firebase Cloud Sync Data</h2>
+            <div data-i18n-html="privacy.section.4.body"></div>
+
+            <h2 data-i18n="privacy.section.5.title">5. Local-Only Data</h2>
+            <div data-i18n-html="privacy.section.5.body"></div>
+
+            <h2 data-i18n="privacy.section.6.title">6. Third-Party Services</h2>
+            <div data-i18n-html="privacy.section.6.body"></div>
+
+            <h2 data-i18n="privacy.section.7.title">7. Contact</h2>
+            <div data-i18n-html="privacy.section.7.body"></div>
+
+        </div>
+    </div>
+
+    <script>
+        window.onload = () => {
+            if (window.rekindleApplyWallpaper) window.rekindleApplyWallpaper();
+        };
+
+        // Helper to HTML-escape text
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+
+
+
+
+    </script>
+    <script src="https://cdn.counter.dev/script.js" data-id="4e551911-0e5d-4c48-91a6-b828c3301675"
+        data-utcoffset="11"></script>
+</body>
+
+</html>
